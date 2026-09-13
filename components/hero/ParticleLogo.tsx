@@ -30,12 +30,15 @@ import { useReducedMotion } from "@/lib/useReducedMotion";
 
 /** Shading tiers. Particles are pre-sorted into these, so the draw loop walks
  *  five contiguous runs and never touches canvas state inside the inner loop. */
+// Light on the dark filament canvas: near-white at the core, cooling toward
+// the artwork's lavender as particles get fainter, so the halo sinks into the
+// background instead of sitting on top of it as grey fog.
 const TIERS = [
-  { rgb: "22,25,31", alpha: 0.95, size: 1.5 },
-  { rgb: "31,36,44", alpha: 0.8, size: 1.34 },
-  { rgb: "46,53,63", alpha: 0.6, size: 1.2 },
-  { rgb: "72,81,94", alpha: 0.36, size: 1.06 },
-  { rgb: "103,112,126", alpha: 0.2, size: 0.94 },
+  { rgb: "250,248,255", alpha: 0.95, size: 1.5 },
+  { rgb: "238,234,248", alpha: 0.8, size: 1.34 },
+  { rgb: "220,213,240", alpha: 0.6, size: 1.2 },
+  { rgb: "190,180,222", alpha: 0.38, size: 1.06 },
+  { rgb: "160,148,200", alpha: 0.22, size: 0.94 },
 ];
 
 const CORE_TIER_WEIGHTS = [0.3, 0.32, 0.24, 0.11, 0.03];
@@ -530,6 +533,11 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       const o2 = Math.sin(t * 0.47 + 1.7);
       const o3 = Math.cos(t * 0.23 + 0.6);
       const o4 = Math.cos(t * 0.38 + 2.4);
+
+      // Re-measure while the cursor is live: the canvas is positioned by a
+      // translate that no ResizeObserver sees, and a stale rect would aim the
+      // repulsion at where the logo used to be.
+      if (pointer.active) rect = host.getBoundingClientRect();
 
       const radius = clamp(drawW * REPEL_RADIUS, 110, 340);
       const radius2 = radius * radius;

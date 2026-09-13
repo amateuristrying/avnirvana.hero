@@ -1,144 +1,46 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import { getPointer, subscribePointer } from "@/lib/pointer";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 
 /**
- * Procedural atmosphere behind the hero.
+ * Animated filament artwork behind the hero.
  *
- * Every formation is its own compositor layer: the gradient and its blur are
- * rasterised once, and each frame only writes `transform`. That keeps a dozen
- * heavily blurred surfaces on the GPU's fast path instead of repainting them.
+ * The SVG is loaded as an `<img>` rather than inlined: its ~1,500 elements
+ * then live in their own isolated document instead of the page DOM, it caches
+ * like any image, and its SMIL animation still runs. `object-fit: cover`
+ * scales it to any viewport; `object-position` shifts the focal point per
+ * breakpoint because the artwork's filaments sit on its right-hand side, which
+ * a centred crop would push out of frame on a portrait phone.
  *
- * Motion has two independent sources — a very slow ambient drift that never
- * stops, and a lagging pull toward the cursor. The pull is deliberately small
- * and heavily eased, so the field reads as *alive* rather than as something
- * chasing the mouse.
+ * SMIL inside an `<img>` cannot be paused from CSS or script, so
+ * `prefers-reduced-motion` is honoured by swapping in a copy with the
+ * `<animate>` elements stripped (`filament-loop-static.svg`, frame zero).
+ *
+ * The layer also drifts a few pixels toward the cursor with a heavy lag — the
+ * same restrained "alive, not following" behaviour as before. It is oversized
+ * by 24px on every side, more than the maximum drift, so no edge ever shows.
  */
 
-interface Formation {
-  /** Box geometry, in percentages of the hero. */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  rotate: number;
-  blur: number;
-  opacity: number;
-  background: string;
-  blend?: CSSProperties["mixBlendMode"];
-  /** 0..1 — share of the maximum cursor displacement this formation takes. */
-  parallax: number;
-  /** Ambient drift: amplitude in px, period in seconds, phase in radians. */
-  ax: number;
-  ay: number;
-  px: number;
-  py: number;
-  phase: number;
-}
-
-/** Maximum cursor-driven displacement, in CSS pixels. */
-const MAX_SHIFT_X = 46;
-const MAX_SHIFT_Y = 34;
+/** Maximum cursor-driven displacement, in CSS pixels. Must stay below the 24px overscan. */
+const MAX_SHIFT_X = 18;
+const MAX_SHIFT_Y = 12;
 /** Time constant of the lag behind the cursor, in seconds. */
-const FOLLOW_TAU = 0.62;
-
-const soft = (color: string, stop = 68) =>
-  `radial-gradient(circle at 50% 50%, ${color} 0%, transparent ${stop}%)`;
-
-/** A soft annulus — reads as a fold in fabric once blurred. */
-const fold = (color: string, inner: number, peak: number, outer: number) =>
-  `radial-gradient(closest-side, transparent ${inner}%, ${color} ${peak}%, transparent ${outer}%)`;
-
-const FORMATIONS: Formation[] = [
-  // Broad white bloom over the upper left — keeps the particle mark legible.
-  {
-    x: -22, y: -30, w: 95, h: 105, rotate: 0, blur: 24, opacity: 0.95,
-    background: soft("rgba(255,255,255,0.98)", 66),
-    parallax: 0.24, ax: 22, ay: 15, px: 41, py: 53, phase: 0.3,
-  },
-  // Cool grey mass on the right, the main source of depth.
-  {
-    x: 44, y: -22, w: 92, h: 118, rotate: -8, blur: 34, opacity: 0.9,
-    background: soft("rgba(196,203,213,0.82)", 64),
-    parallax: 0.72, ax: 34, ay: 22, px: 47, py: 61, phase: 1.9,
-  },
-  // Grey shoulder falling into the lower left.
-  {
-    x: -30, y: 34, w: 88, h: 92, rotate: 12, blur: 40, opacity: 0.8,
-    background: soft("rgba(201,207,216,0.7)", 62),
-    parallax: 0.5, ax: 26, ay: 30, px: 55, py: 38, phase: 3.4,
-  },
-  // Deepest cool shadow, bottom right.
-  {
-    x: 48, y: 42, w: 84, h: 90, rotate: -18, blur: 52, opacity: 0.72,
-    background: soft("rgba(163,171,183,0.55)", 60),
-    parallax: 0.85, ax: 30, ay: 26, px: 64, py: 44, phase: 5.1,
-  },
-  // Charcoal breath along the very bottom, anchors the composition.
-  {
-    x: 6, y: 62, w: 110, h: 70, rotate: 4, blur: 60, opacity: 0.5,
-    background: soft("rgba(150,158,171,0.42)", 58),
-    parallax: 0.34, ax: 18, ay: 12, px: 73, py: 49, phase: 2.2,
-  },
-  // Large white fold sweeping through the centre.
-  {
-    x: -38, y: -46, w: 150, h: 165, rotate: -14, blur: 44, opacity: 0.85,
-    background: fold("rgba(255,255,255,0.92)", 52, 65, 79),
-    parallax: 0.3, ax: 24, ay: 18, px: 58, py: 71, phase: 0.9,
-  },
-  // Counter fold, tighter and lower.
-  {
-    x: 8, y: 4, w: 145, h: 130, rotate: 9, blur: 50, opacity: 0.65,
-    background: fold("rgba(255,255,255,0.85)", 58, 69, 82),
-    parallax: 0.46, ax: 28, ay: 20, px: 51, py: 66, phase: 4.3,
-  },
-  // Grey fold — the darker crease that gives the surface its dimension.
-  {
-    x: 2, y: -54, w: 148, h: 160, rotate: 24, blur: 58, opacity: 0.55,
-    background: fold("rgba(146,155,169,0.4)", 60, 70, 83),
-    parallax: 0.62, ax: 32, ay: 24, px: 68, py: 43, phase: 2.7,
-  },
-  // Wide, very slow grey crease across the lower half.
-  {
-    x: -46, y: 12, w: 165, h: 145, rotate: -26, blur: 64, opacity: 0.45,
-    background: fold("rgba(158,166,179,0.34)", 62, 72, 85),
-    parallax: 0.4, ax: 20, ay: 28, px: 79, py: 57, phase: 5.8,
-  },
-  // Highlight lifting the top right corner.
-  {
-    x: 52, y: -40, w: 70, h: 80, rotate: 0, blur: 30, opacity: 0.8,
-    background: soft("rgba(255,255,255,0.9)", 62),
-    parallax: 0.55, ax: 24, ay: 16, px: 44, py: 59, phase: 1.2,
-  },
-  // Small close highlight behind the copy, for contrast under the headline.
-  {
-    x: 44, y: 18, w: 62, h: 62, rotate: 0, blur: 36, opacity: 0.62,
-    background: soft("rgba(255,255,255,0.85)", 60),
-    parallax: 0.22, ax: 14, ay: 12, px: 62, py: 47, phase: 3.9,
-  },
-];
+const FOLLOW_TAU = 0.9;
 
 export default function HeroBackground() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const layersRef = useRef<Array<HTMLDivElement | null>>([]);
+  const layerRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
-
-    const layers = layersRef.current;
-    const n = FORMATIONS.length;
-    const curX = new Float64Array(n);
-    const curY = new Float64Array(n);
+    const layer = layerRef.current;
+    if (!root || !layer) return;
 
     if (reduced) {
-      for (let i = 0; i < n; i++) {
-        const el = layers[i];
-        if (el) el.style.transform = `translate3d(0,0,0) rotate(${FORMATIONS[i].rotate}deg)`;
-      }
+      layer.style.transform = "";
       return;
     }
 
@@ -152,6 +54,8 @@ export default function HeroBackground() {
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, { passive: true });
 
+    let curX = 0;
+    let curY = 0;
     let raf = 0;
     let last = performance.now();
     let running = true;
@@ -163,13 +67,8 @@ export default function HeroBackground() {
       let dt = (now - last) / 1000;
       last = now;
       if (dt > 0.05) dt = 0.05;
-
-      const t = now / 1000;
-      // Frame-rate independent exponential approach.
       const k = 1 - Math.exp(-dt / FOLLOW_TAU);
 
-      // The cursor only has a say while it is actually over the hero; outside
-      // it, formations ease back to where they started.
       const inside =
         pointer.active &&
         pointer.y >= bounds.top &&
@@ -177,31 +76,21 @@ export default function HeroBackground() {
         pointer.x >= bounds.left &&
         pointer.x <= bounds.right;
 
-      const targetNX = inside ? pointer.nx : 0;
-      const targetNY = inside ? pointer.ny : 0;
+      const wantX = inside ? pointer.nx * MAX_SHIFT_X : 0;
+      const wantY = inside ? pointer.ny * MAX_SHIFT_Y : 0;
+      const nextX = curX + (wantX - curX) * k;
+      const nextY = curY + (wantY - curY) * k;
 
-      for (let i = 0; i < n; i++) {
-        const el = layers[i];
-        if (!el) continue;
-        const f = FORMATIONS[i];
-
-        const wantX = targetNX * f.parallax * MAX_SHIFT_X;
-        const wantY = targetNY * f.parallax * MAX_SHIFT_Y;
-        curX[i] += (wantX - curX[i]) * k;
-        curY[i] += (wantY - curY[i]) * k;
-
-        const driftX = Math.sin((t / f.px) * Math.PI * 2 + f.phase) * f.ax;
-        const driftY = Math.cos((t / f.py) * Math.PI * 2 + f.phase * 0.7) * f.ay;
-
-        el.style.transform = `translate3d(${(curX[i] + driftX).toFixed(2)}px, ${(
-          curY[i] + driftY
-        ).toFixed(2)}px, 0) rotate(${f.rotate}deg)`;
+      // Skip the style write once settled, so an idle page does no work.
+      if (Math.abs(nextX - curX) > 0.01 || Math.abs(nextY - curY) > 0.01) {
+        curX = nextX;
+        curY = nextY;
+        layer.style.transform = `translate3d(${curX.toFixed(2)}px, ${curY.toFixed(2)}px, 0)`;
       }
     };
 
     raf = requestAnimationFrame(frame);
 
-    // Stop entirely once the hero scrolls away.
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !running) {
@@ -228,35 +117,34 @@ export default function HeroBackground() {
   }, [reduced]);
 
   return (
-    <div ref={rootRef} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Base wash. Everything else is layered over this. */}
-      <div className="absolute inset-0 bg-[linear-gradient(158deg,#fdfdfe_0%,#f6f7f9_34%,#eceef2_66%,#e4e7ec_100%)]" />
+    <div
+      ref={rootRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 overflow-hidden bg-canvas"
+    >
+      <div ref={layerRef} className="absolute -inset-6 will-change-transform">
+        <picture className="block h-full w-full">
+          <source media="(prefers-reduced-motion: reduce)" srcSet="/hero/filament-loop-static.svg" />
+          <img
+            src="/hero/filament-loop.svg"
+            alt=""
+            width={1700}
+            height={956}
+            decoding="async"
+            draggable={false}
+            // Desktop anchors the artwork's left edge, which pushes the
+            // filament ribbon as far right — away from the copy — as the
+            // crop allows. Narrow screens do the opposite to keep it in frame.
+            className="block h-full w-full select-none object-cover object-[84%_50%] md:object-[74%_50%] lg:object-[0%_50%]"
+          />
+        </picture>
+      </div>
 
-      {FORMATIONS.map((f, i) => (
-        <div
-          key={i}
-          ref={(el) => {
-            layersRef.current[i] = el;
-          }}
-          className="absolute"
-          style={{
-            left: `${f.x}%`,
-            top: `${f.y}%`,
-            width: `${f.w}%`,
-            height: `${f.h}%`,
-            background: f.background,
-            filter: `blur(${f.blur}px)`,
-            opacity: f.opacity,
-            mixBlendMode: f.blend,
-            transform: `translate3d(0,0,0) rotate(${f.rotate}deg)`,
-            willChange: "transform",
-          }}
-        />
-      ))}
-
-      {/* Grain, then a whisper of vignette to seat the composition. */}
-      <div className="bg-grain absolute inset-0 opacity-[0.28] mix-blend-soft-light" />
-      <div className="absolute inset-0 bg-[radial-gradient(120%_95%_at_50%_38%,transparent_52%,rgba(120,129,142,0.16)_100%)]" />
+      {/* Legibility scrims. The artwork is busiest exactly where the copy
+          sits, so soften it there rather than dimming the whole piece. */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,10,30,0.55)_0%,rgba(18,10,30,0)_22%)]" />
+      <div className="absolute inset-0 bg-canvas/45 lg:bg-transparent" />
+      <div className="absolute inset-0 hidden bg-[radial-gradient(48%_58%_at_64%_56%,rgba(18,10,30,0.78)_0%,rgba(18,10,30,0.5)_48%,rgba(18,10,30,0)_100%)] lg:block" />
     </div>
   );
 }

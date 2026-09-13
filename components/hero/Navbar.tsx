@@ -46,23 +46,23 @@ export default function Navbar() {
       <div className="mx-auto max-w-[1600px]">
         <nav
           aria-label="Primary"
-          className="relative rounded-[18px] border border-white/60 bg-white/40 shadow-[0_10px_36px_-22px_rgba(23,26,32,0.35)] ring-1 ring-hairline backdrop-blur-xl backdrop-saturate-150"
+          className="relative rounded-[18px] border border-line bg-canvas/40 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.7)] backdrop-blur-xl backdrop-saturate-150"
         >
           <div className="flex h-[58px] items-center gap-4 px-3.5 sm:h-[64px] sm:px-5">
             {/* Brand */}
             <a
               href="#"
-              className="flex shrink-0 items-center gap-2.5 text-ink transition-opacity duration-300 hover:opacity-70"
+              className="flex shrink-0 items-center gap-2.5 text-fg transition-opacity duration-300 hover:opacity-75"
               aria-label="AV Nirvana India — home"
             >
               <LogoMark className="h-[26px] w-auto sm:h-[30px]" />
               {/* Divider from the brand lockup. */}
-              <span className="h-[26px] w-px shrink-0 bg-hairline-strong sm:h-[30px]" aria-hidden="true" />
+              <span className="h-[26px] w-px shrink-0 bg-line-strong sm:h-[30px]" aria-hidden="true" />
               <span className="leading-none">
                 <span className="block text-[15px] font-semibold tracking-[0.02em] sm:text-[17px]">
                   AV NIRVANA
                 </span>
-                <span className="mt-[3px] block text-[8px] font-medium tracking-[0.46em] text-brand-deep sm:text-[9px]">
+                <span className="mt-[3px] block text-[8px] font-medium tracking-[0.46em] text-brand sm:text-[9px]">
                   INDIA
                 </span>
               </span>
@@ -76,8 +76,8 @@ export default function Navbar() {
                     href={link.href}
                     data-active={link.active ? "true" : undefined}
                     aria-current={link.active ? "page" : undefined}
-                    className={`nav-underline relative text-[14.5px] transition-colors duration-300 hover:text-ink ${
-                      link.active ? "font-medium text-ink" : "text-mute"
+                    className={`nav-underline relative text-[14.5px] transition-colors duration-300 hover:text-fg ${
+                      link.active ? "font-medium text-fg" : "text-fg-mute"
                     }`}
                   >
                     {link.label}
@@ -89,7 +89,7 @@ export default function Navbar() {
             <div className="ml-auto flex items-center gap-2 lg:ml-8 lg:gap-3">
               <a
                 href="#contact"
-                className="group hidden items-center gap-2 rounded-full bg-ink py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-white transition-colors duration-300 hover:bg-ink-soft sm:inline-flex"
+                className="group hidden items-center gap-2 rounded-full bg-fg py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-canvas transition-colors duration-300 hover:bg-white sm:inline-flex"
               >
                 Talk to our expert
                 <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -101,7 +101,7 @@ export default function Navbar() {
                 aria-expanded={open}
                 aria-controls="hero-menu"
                 aria-label={open ? "Close menu" : "Open menu"}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition-colors duration-300 hover:bg-ink/[0.06]"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors duration-300 hover:bg-fg/10"
               >
                 <span className="relative block h-[13px] w-[19px]">
                   <span
@@ -132,7 +132,7 @@ export default function Navbar() {
             }`}
           >
             <div className="min-h-0">
-              <div className="border-t border-hairline px-3.5 pb-4 pt-3 sm:px-5">
+              <div className="border-t border-line px-3.5 pb-4 pt-3 sm:px-5">
                 <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
                   {LINKS.map((link) => (
                     <li key={link.label}>
@@ -140,7 +140,7 @@ export default function Navbar() {
                         href={link.href}
                         tabIndex={open ? 0 : -1}
                         onClick={() => setOpen(false)}
-                        className="block rounded-lg px-3 py-2.5 text-[15px] text-ink-soft transition-colors duration-200 hover:bg-ink/[0.05]"
+                        className="block rounded-lg px-3 py-2.5 text-[15px] text-fg-soft transition-colors duration-200 hover:bg-fg/[0.07]"
                       >
                         {link.label}
                       </a>
@@ -151,7 +151,7 @@ export default function Navbar() {
                   href="#contact"
                   tabIndex={open ? 0 : -1}
                   onClick={() => setOpen(false)}
-                  className="group mt-3 flex items-center justify-center gap-2 rounded-full bg-ink py-3 text-[14px] font-medium text-white transition-colors duration-300 hover:bg-ink-soft sm:hidden"
+                  className="group mt-3 flex items-center justify-center gap-2 rounded-full bg-fg py-3 text-[14px] font-medium text-canvas transition-colors duration-300 hover:bg-white sm:hidden"
                 >
                   Talk to our expert
                   <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

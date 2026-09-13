@@ -5,29 +5,29 @@
     var(--font-outfit), "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 
-  /* Ink — typography and particles */
-  --color-ink: #171a20;
-  --color-ink-soft: #262b33;
-  --color-mute: #6a7380;
-  --color-accent: #7d8794;
+  /* Canvas — matches the base fill of the filament background artwork, so the
+     page reads as one surface before (and around) the SVG. */
+  --color-canvas: #120a1e;
 
-  /* Brand blue.
-     `brand` is the colour as it appears in the logo lockup, which is drawn on
-     a dark field. On the hero's near-white background that value only reaches
-     ~2.3:1 contrast, so `brand-deep` is the same hue darkened for light
-     surfaces — it clears AA for small text at ~5.4:1. */
+  /* Foreground — typography and particles, tinted faintly toward the
+     artwork's lavender so white never reads as clinical against it. */
+  --color-fg: #f6f4fb;
+  --color-fg-soft: #e4dfef;
+  --color-fg-mute: #b3abc4;
+  --color-accent: #b9aee0;
+
+  /* Brand blue, as drawn in the logo lockup. The lockup sits on a dark field,
+     which is exactly this hero now, so the literal value is legible here. */
   --color-brand: #5ba9de;
-  --color-brand-deep: #1f6fae;
 
-  /* Surfaces */
-  --color-hairline: rgba(23, 26, 32, 0.09);
-  --color-hairline-strong: rgba(23, 26, 32, 0.16);
-  --color-glass: rgba(255, 255, 255, 0.5);
+  /* Lines */
+  --color-line: rgba(246, 244, 251, 0.12);
+  --color-line-strong: rgba(246, 244, 251, 0.24);
 }
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
 
   html {
@@ -41,8 +41,8 @@
   }
 
   body {
-    background-color: #f2f4f7;
-    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -50,24 +50,18 @@
   }
 
   ::selection {
-    background: rgba(23, 26, 32, 0.88);
-    color: #fff;
+    background: rgba(246, 244, 251, 0.9);
+    color: var(--color-canvas);
   }
 
   :focus-visible {
-    outline: 2px solid rgba(23, 26, 32, 0.55);
+    outline: 2px solid rgba(246, 244, 251, 0.7);
     outline-offset: 3px;
     border-radius: 4px;
   }
 }
 
 @layer utilities {
-  /* Fine monochrome grain. Static layer — painted once, never re-rastered. */
-  .bg-grain {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 200px 200px;
-  }
-
   /* Nav underline that grows from the left on hover. */
   .nav-underline::after {
     content: "";
