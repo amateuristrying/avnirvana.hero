@@ -117,6 +117,11 @@ interface ParticleField {
   tierStart: Int32Array;
   tierLen: Int32Array;
   tier: Uint8Array;
+  // Screen 3 Sound Wave Coordinates
+  waveSide: Int8Array;
+  waveBand: Uint8Array;
+  waveAngle: Float32Array;
+  waveRadialOffset: Float32Array;
 }
 
 function buildField(count: number, seed = 20260913): ParticleField {
@@ -183,6 +188,12 @@ function buildField(count: number, seed = 20260913): ParticleField {
   const tierStart = new Int32Array(HERO_TIERS.length);
   const tierLen = new Int32Array(HERO_TIERS.length);
 
+  // Screen 3 Sound Wave Arrays
+  const waveSide = new Int8Array(n);
+  const waveBand = new Uint8Array(n);
+  const waveAngle = new Float32Array(n);
+  const waveRadialOffset = new Float32Array(n);
+
   for (let i = 0; i < n; i++) {
     const orig = perm[i];
     const t = tiers[orig];
@@ -203,6 +214,25 @@ function buildField(count: number, seed = 20260913): ParticleField {
     wobAY[i] = (rng() - 0.5) * 1.8;
     wobBY[i] = (rng() - 0.5) * 1.0;
     wobPhase[i] = rng() * Math.PI * 2;
+
+    // Symmetrical 50/50 distribution: left (-1) vs right (+1) sound waves
+    waveSide[i] = i % 2 === 0 ? -1 : 1;
+
+    // 4 concentric bands (0 = inner, 3 = outer)
+    const rBand = rng();
+    let b = 0;
+    if (rBand < 0.18) b = 0;
+    else if (rBand < 0.42) b = 1;
+    else if (rBand < 0.70) b = 2;
+    else b = 3;
+    waveBand[i] = b;
+
+    // Angular distribution across +-52 deg, concentrated towards equator
+    const rawU = (rng() - 0.5) * 2;
+    const u = rawU * 0.78 + rawU * rawU * rawU * 0.22;
+    waveAngle[i] = u * 0.92;
+
+    waveRadialOffset[i] = halo ? gaussian(rng) * 24 : gaussian(rng) * 9;
   }
 
   return {
@@ -226,6 +256,10 @@ function buildField(count: number, seed = 20260913): ParticleField {
     tierStart,
     tierLen,
     tier: finalTier,
+    waveSide,
+    waveBand,
+    waveAngle,
+    waveRadialOffset,
   };
 }
 
@@ -330,7 +364,7 @@ export default function UnifiedParticleFlow({
       const vbCy = vb.y + vb.height * 0.5;
       const isDesktop = w >= 1024;
 
-      // Hero Coordinates
+      // Hero Coordinates (Stage 1, p = 0)
       let heroCx = w * 0.5;
       let heroCy = h * 0.35;
       let heroMarkScale = Math.min((w * 0.75) / vb.width, (h * 0.35) / vb.height);
@@ -342,7 +376,7 @@ export default function UnifiedParticleFlow({
         heroMarkScale = Math.min((w * 0.39) / vb.width, (h * 0.64) / vb.height);
       }
 
-      // About Coordinates (Centered within the liquid glass chassis with breathing room under header)
+      // About Coordinates (Stage 2, p = 1)
       const aboutCx = w * 0.5;
       const aboutCy = isDesktop ? h * 0.575 : h * 0.46;
       const baseAboutScale = isDesktop
@@ -350,28 +384,69 @@ export default function UnifiedParticleFlow({
         : Math.min((w * 0.70) / vb.width, (h * 0.32) / vb.height);
       const aboutMarkScale = baseAboutScale * lScale;
 
-      // Eased progress for smooth spatial transition
-      const easedP = easeInOutCubic(clamp(p, 0, 1));
-      const curCx = heroCx + (aboutCx - heroCx) * easedP;
-      const curCy = heroCy + (aboutCy - heroCy) * easedP;
-      const curScale = heroMarkScale + (aboutMarkScale - heroMarkScale) * easedP;
+      // Sound Wave Coordinates (Stage 3, p = 2)
+      // Centered symmetrically around the speaker in Screen 3
+      const speakerCx = w * 0.5;
+      const speakerCy = isDesktop ? h * 0.49 : h * 0.48;
 
-      // FLOW STATE TURBULENCE:
-      // When transitioning (0 < p < 1), inject organic swirling streamline vectors
-      const isTransitioning = p > 0.001 && p < 0.999;
-      const flowMagnitude = isTransitioning ? Math.sin(p * Math.PI) * (isDesktop ? 55 : 32) : 0;
+      // Concentric arc radii framing the speaker
+      const baseR0 = isDesktop ? Math.min(w * 0.165, 245) : Math.min(w * 0.28, 130);
+      const bandStep = isDesktop ? Math.min(w * 0.070, 105) : Math.min(w * 0.12, 55);
 
-      for (let i = 0; i < f.n; i++) {
-        if (isTransitioning) {
-          const theta = i * 0.173 + p * 5.2;
-          const pushWeight = f.push[i] * 0.7 + 0.3;
-          const streamX = Math.sin(theta) * flowMagnitude * pushWeight;
-          const streamY = Math.cos(theta * 1.25) * (flowMagnitude * 0.6) * pushWeight;
-          f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale + streamX;
-          f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale + streamY;
-        } else {
-          f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale;
-          f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale;
+      if (p <= 1.0) {
+        // Stage 1 -> Stage 2 (Hero -> About chevron mark)
+        const easedP = easeInOutCubic(clamp(p, 0, 1));
+        const curCx = heroCx + (aboutCx - heroCx) * easedP;
+        const curCy = heroCy + (aboutCy - heroCy) * easedP;
+        const curScale = heroMarkScale + (aboutMarkScale - heroMarkScale) * easedP;
+
+        const isTransitioning = p > 0.001 && p < 0.999;
+        const flowMagnitude = isTransitioning ? Math.sin(p * Math.PI) * (isDesktop ? 55 : 32) : 0;
+
+        for (let i = 0; i < f.n; i++) {
+          if (isTransitioning) {
+            const theta = i * 0.173 + p * 5.2;
+            const pushWeight = f.push[i] * 0.7 + 0.3;
+            const streamX = Math.sin(theta) * flowMagnitude * pushWeight;
+            const streamY = Math.cos(theta * 1.25) * (flowMagnitude * 0.6) * pushWeight;
+            f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale + streamX;
+            f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale + streamY;
+          } else {
+            f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale;
+            f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale;
+          }
+        }
+      } else {
+        // Stage 2 -> Stage 3 (About chevron mark -> Acoustic Sound Waves)
+        const p23 = clamp(p - 1.0, 0, 1.0);
+        const easedP23 = easeInOutCubic(p23);
+
+        const isTransitioning2 = p23 > 0.001 && p23 < 0.999;
+        const flowMagnitude2 = isTransitioning2 ? Math.sin(p23 * Math.PI) * (isDesktop ? 68 : 38) : 0;
+
+        for (let i = 0; i < f.n; i++) {
+          const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
+          const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
+
+          const b = f.waveBand[i];
+          const side = f.waveSide[i];
+          const angle = f.waveAngle[i];
+          const r = baseR0 + b * bandStep + f.waveRadialOffset[i];
+
+          const waveX = speakerCx + side * (r * Math.cos(angle));
+          const waveY = speakerCy + r * Math.sin(angle);
+
+          if (isTransitioning2) {
+            const theta2 = i * 0.143 + p23 * 4.9;
+            const pushWeight = f.push[i] * 0.7 + 0.3;
+            const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
+            const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
+            f.hx[i] = aboutX + (waveX - aboutX) * easedP23 + streamX2;
+            f.hy[i] = aboutY + (waveY - aboutY) * easedP23 + streamY2;
+          } else {
+            f.hx[i] = aboutX + (waveX - aboutX) * easedP23;
+            f.hy[i] = aboutY + (waveY - aboutY) * easedP23;
+          }
         }
       }
     };
@@ -409,8 +484,20 @@ export default function UnifiedParticleFlow({
       const cursorY = pointer.y;
 
       for (let i = 0; i < n; i++) {
-        const targetX = field.hx[i] + Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i];
-        const targetY = field.hy[i] + Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i];
+        let targetX = field.hx[i] + Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i];
+        let targetY = field.hy[i] + Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i];
+
+        // Screen 3 Harmonic Sound Wave Acoustic Pulse
+        if (p > 0.7) {
+          const soundInfluence = clamp((p - 0.7) / 0.3, 0, 1);
+          const b = field.waveBand[i];
+          const side = field.waveSide[i];
+          const angle = field.waveAngle[i];
+          // Wave pulse propagating outward:
+          const pulse = Math.sin(totalTime * 3.4 - b * 0.95) * 5.0 * soundInfluence;
+          targetX += side * Math.cos(angle) * pulse;
+          targetY += Math.sin(angle) * pulse;
+        }
 
         const diffX = targetX - field.x[i];
         const diffY = targetY - field.y[i];
@@ -451,20 +538,32 @@ export default function UnifiedParticleFlow({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
 
-      const p = clamp(progressRef.current, 0, 1);
+      const p = clamp(progressRef.current, 0, 2);
       const pScale = particleScaleRef.current;
       const heroPScale = heroParticleScaleRef.current;
-      const easedP = easeInOutCubic(p);
 
       for (let t = 0; t < HERO_TIERS.length; t++) {
-        const sprite = easedP < 0.5 ? heroSprites[t] : aboutSprites[t];
         const start = field.tierStart[t];
         const len = field.tierLen[t];
 
-        // Base size scaled up by heroPScale on Screen 1 and pScale on Screen 2
         const heroSize = HERO_TIERS[t].size * SPRITE_OVERDRAW * heroPScale;
         const aboutSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * pScale;
-        const currentSize = heroSize + (aboutSize - heroSize) * easedP;
+        const waveSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * (pScale * 0.85);
+
+        let currentSize = 0;
+        let sprite = aboutSprites[t];
+
+        if (p <= 1.0) {
+          const easedP = easeInOutCubic(p);
+          currentSize = heroSize + (aboutSize - heroSize) * easedP;
+          sprite = easedP < 0.5 ? heroSprites[t] : aboutSprites[t];
+        } else {
+          const p23 = p - 1.0;
+          const easedP23 = easeInOutCubic(p23);
+          currentSize = aboutSize + (waveSize - aboutSize) * easedP23;
+          sprite = aboutSprites[t];
+        }
+
         const half = currentSize * 0.5;
 
         for (let i = start; i < start + len; i++) {

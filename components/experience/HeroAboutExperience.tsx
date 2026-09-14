@@ -24,6 +24,8 @@ export default function HeroAboutExperience() {
   // Content layers
   const heroContentRef = useRef<HTMLDivElement>(null);
   const aboutContentRef = useRef<HTMLDivElement>(null);
+  const speakerContentRef = useRef<HTMLDivElement>(null);
+  const particleCanvasWrapRef = useRef<HTMLDivElement>(null);
 
   // About Screen Text Block refs for sequential GSAP animation
   const headerRef = useRef<HTMLDivElement>(null);
@@ -35,33 +37,36 @@ export default function HeroAboutExperience() {
   // Timeline reference
   const tlRef = useRef<gsap.core.Timeline | null>(null);
 
-  // Screen tracking: 0 = Hero, 1 = About
+  // Screen tracking: 0 = Hero, 1 = About, 2 = Speaker
   const [currentScreen, setCurrentScreen] = useState(0);
   const currentScreenRef = useRef(0);
   const animatingRef = useRef(false);
   const progressProxy = useRef({ value: 0 });
 
-  // Realtime scroll progress passed to the unified canvas (0.0 to 1.0)
+  // Realtime scroll progress passed to the unified canvas (0.0 to 2.0)
   const [scrollProgress, setScrollProgress] = useState(0);
 
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
     animatingRef.current = true;
 
+    const diff = Math.abs(target - currentScreenRef.current);
+    const animDuration = diff > 1 ? 0.95 : 0.72;
+
     gsap.killTweensOf(progressProxy.current);
     gsap.to(progressProxy.current, {
       value: target,
-      duration: 0.72,
+      duration: animDuration,
       ease: "power2.inOut",
       onUpdate: () => {
         const p = progressProxy.current.value;
         setScrollProgress(p);
-        tlRef.current?.progress(p);
+        tlRef.current?.time(p);
       },
       onComplete: () => {
         progressProxy.current.value = target;
         setScrollProgress(target);
-        tlRef.current?.progress(target);
+        tlRef.current?.time(target);
         currentScreenRef.current = target;
         setCurrentScreen(target);
         setTimeout(() => {
@@ -223,19 +228,62 @@ export default function HeroAboutExperience() {
         );
       }
 
-      tl.progress(0);
+      // ============================================================
+      // SCREEN 2 -> SCREEN 3 (Time 1.0 to 2.0)
+      // ============================================================
+      // 7. Screen 2 about content container fades and moves out
+      if (aboutContentRef.current) {
+        tl.to(
+          aboutContentRef.current,
+          {
+            opacity: 0,
+            y: -35,
+            pointerEvents: "none",
+            ease: "power1.in",
+            duration: 0.32,
+          },
+          1.0,
+        );
+      }
+
+      // 8. Screen 3 speaker and flagship presentation entrance
+      if (speakerContentRef.current) {
+        tl.fromTo(
+          speakerContentRef.current,
+          {
+            opacity: 0,
+            y: 35,
+            pointerEvents: "none",
+          },
+          {
+            opacity: 1,
+            y: 0,
+            pointerEvents: "auto",
+            ease: "power2.out",
+            duration: 0.48,
+          },
+          1.32,
+        );
+      }
+
+      // Ensure timeline total duration is exactly 2.0
+      tl.set({}, {}, 2.0);
+
+      tl.time(0);
     }, viewport);
 
-    // Hijack mouse wheel: any scroll triggers full instant transition to the next screen
+    // Hijack mouse wheel: any scroll triggers full instant transition between screens
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (animatingRef.current) return;
       if (Math.abs(e.deltaY) < 3) return;
 
-      if (e.deltaY > 0 && currentScreenRef.current === 0) {
-        goToScreen(1);
-      } else if (e.deltaY < 0 && currentScreenRef.current === 1) {
-        goToScreen(0);
+      if (e.deltaY > 0) {
+        if (currentScreenRef.current === 0) goToScreen(1);
+        else if (currentScreenRef.current === 1) goToScreen(2);
+      } else if (e.deltaY < 0) {
+        if (currentScreenRef.current === 2) goToScreen(1);
+        else if (currentScreenRef.current === 1) goToScreen(0);
       }
     };
 
@@ -264,10 +312,12 @@ export default function HeroAboutExperience() {
       const diffX = touchStartX - touchEndX;
 
       if (Math.abs(diffY) > 25 && Math.abs(diffY) > Math.abs(diffX)) {
-        if (diffY > 0 && currentScreenRef.current === 0) {
-          goToScreen(1);
-        } else if (diffY < 0 && currentScreenRef.current === 1) {
-          goToScreen(0);
+        if (diffY > 0) {
+          if (currentScreenRef.current === 0) goToScreen(1);
+          else if (currentScreenRef.current === 1) goToScreen(2);
+        } else if (diffY < 0) {
+          if (currentScreenRef.current === 2) goToScreen(1);
+          else if (currentScreenRef.current === 1) goToScreen(0);
         }
       }
     };
@@ -279,9 +329,15 @@ export default function HeroAboutExperience() {
         if (currentScreenRef.current === 0) {
           e.preventDefault();
           goToScreen(1);
+        } else if (currentScreenRef.current === 1) {
+          e.preventDefault();
+          goToScreen(2);
         }
       } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
-        if (currentScreenRef.current === 1) {
+        if (currentScreenRef.current === 2) {
+          e.preventDefault();
+          goToScreen(1);
+        } else if (currentScreenRef.current === 1) {
           e.preventDefault();
           goToScreen(0);
         }
@@ -293,7 +349,10 @@ export default function HeroAboutExperience() {
       const target = (e.target as HTMLElement).closest("a");
       if (!target) return;
       const href = target.getAttribute("href");
-      if (href === "#about") {
+      if (href === "#speaker" || href === "#products") {
+        e.preventDefault();
+        goToScreen(2);
+      } else if (href === "#about") {
         e.preventDefault();
         goToScreen(1);
       } else if (href === "#" || href === "#home") {
@@ -332,7 +391,7 @@ export default function HeroAboutExperience() {
 
         {/* Background 2: About Ferrofluid artwork */}
         <div ref={aboutBgRef} className="absolute inset-0 z-0 opacity-0">
-          <AboutBackground active={currentScreen === 1 || scrollProgress > 0.4} />
+          <AboutBackground active={currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4} />
         </div>
 
         {/*
@@ -340,12 +399,14 @@ export default function HeroAboutExperience() {
           Starts at Hero position (left column), fluidly flows into the center of the About screen,
           morphs colors from lavender/white to electric blue/white, and scales up to SCREEN2_LOGO_SCALE (1.34x) & SCREEN2_PARTICLE_SCALE (1.66x).
         */}
-        <UnifiedParticleFlow
-          progress={scrollProgress}
-          logoScale={SCREEN2_LOGO_SCALE}
-          particleScale={SCREEN2_PARTICLE_SCALE}
-          heroParticleScale={HERO_PARTICLE_SCALE}
-        />
+        <div ref={particleCanvasWrapRef} className="absolute inset-0 z-10 pointer-events-none">
+          <UnifiedParticleFlow
+            progress={scrollProgress}
+            logoScale={SCREEN2_LOGO_SCALE}
+            particleScale={SCREEN2_PARTICLE_SCALE}
+            heroParticleScale={HERO_PARTICLE_SCALE}
+          />
+        </div>
 
         {/* ============================================================ */}
         {/* LAYER 1: HERO SCREEN CONTENT                                 */}
@@ -469,6 +530,147 @@ export default function HeroAboutExperience() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================ */}
+        {/* LAYER 3: SCREEN 3 - AIR-C8 SPEAKER SHOWCASE ON FERROFLUID    */}
+        {/* ============================================================ */}
+        <div
+          id="speaker"
+          ref={speakerContentRef}
+          className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between px-4 opacity-0 sm:px-6 lg:px-8 py-5 sm:py-7"
+        >
+          {/* Top Center: Product Header Hierarchy */}
+          <div className="mx-auto max-w-[800px] pt-1 sm:pt-2 text-center will-change-transform">
+            <div className="inline-flex items-center justify-center gap-3">
+              <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
+              <span className="text-[11px] font-semibold tracking-[0.26em] text-fg-mute/90 uppercase sm:text-[11.5px]">
+                OUR FLAGSHIP PRODUCT
+              </span>
+              <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
+            </div>
+
+            <h2 className="mt-1 text-[clamp(2.4rem,4.2vw,3.8rem)] font-extrabold leading-[1.04] tracking-[-0.035em] text-fg drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)]">
+              AIR-C8
+            </h2>
+
+            <p className="mt-1 text-[10.5px] font-semibold tracking-[0.28em] text-fg-mute/85 uppercase sm:text-[11px]">
+              PASSIVE INSTALLATION SPEAKER
+            </p>
+
+            <p className="mx-auto mt-2 max-w-[48ch] text-[clamp(0.84rem,0.94vw,0.96rem)] font-light leading-[1.52] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+              Compact form. Powerful performance.
+              <br className="hidden sm:inline" /> Engineered for exceptional sound in any space.
+            </p>
+          </div>
+
+          {/* Centered Speaker Presentation (Framed by acoustic particle sound waves) */}
+          <div className="relative flex flex-1 items-center justify-center py-1">
+            <div
+              className="relative flex items-center justify-center will-change-transform"
+              style={{
+                transform: "scale(1.2)",
+              }}
+            >
+              <img
+                src="/speaker.png"
+                alt="AIR-C8 Passive Installation Speaker"
+                className="h-[42vh] max-h-[440px] min-h-[250px] w-auto max-w-[78vw] object-contain drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_50px_rgba(138,182,255,0.20)] select-none pointer-events-none"
+                draggable={false}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Specifications (4 Columns with clean SVG icons) */}
+          <div className="mx-auto w-full max-w-[1360px] pb-1 sm:pb-2">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-2 sm:gap-x-8 sm:px-4 md:grid-cols-4 lg:gap-x-12">
+              {/* Feature 1: Sound */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
+                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
+                    RICH, HIGH-FIDELITY SOUND
+                  </h4>
+                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
+                    8&quot; long-excursion woofer with HF driver
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 2: Versatility */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
+                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <path d="m3.27 6.96 8.73 5.04 8.73-5.04M12 22.08V12" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
+                    COMPACT &amp; VERSATILE
+                  </h4>
+                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
+                    Ideal for retail, entertainment, malls and club settings.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 3: Composite Cabinet */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
+                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m2 7 10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
+                    ADVANCED COMPOSITE CABINET
+                  </h4>
+                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
+                    Low distortion, reduced resonance, clearer sound.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 4: Built to Last */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
+                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
+                    BUILT TO LAST
+                  </h4>
+                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
+                    Weather-resistant with IP54 rating.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Link CTA */}
+            <div className="mt-4 sm:mt-5 flex flex-col items-center justify-center gap-1.5 pointer-events-auto">
+              <a
+                href="#products"
+                className="group flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300 hover:opacity-85"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/5 text-fg-mute backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0.5">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-semibold tracking-[0.24em] text-fg-mute/80 uppercase transition-colors group-hover:text-fg">
+                  VIEW MORE PRODUCTS
+                </span>
+              </a>
             </div>
           </div>
         </div>
