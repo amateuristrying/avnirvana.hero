@@ -23,6 +23,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={outfit.variable}>
+      <head>
+        <link
+          rel="preload"
+          href="/hero/filament-loop.svg"
+          as="image"
+          type="image/svg+xml"
+        />
+        <link
+          rel="prefetch"
+          href="/about/stipple-background.svg"
+          as="image"
+          type="image/svg+xml"
+        />
+      </head>
       <body className="antialiased">{children}</body>
     </html>
   );

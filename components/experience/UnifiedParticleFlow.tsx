@@ -297,7 +297,7 @@ export default function UnifiedParticleFlow({
 
       width = w;
       height = h;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -305,9 +305,8 @@ export default function UnifiedParticleFlow({
       canvas.style.height = `${height}px`;
 
       if (!field) {
-        const diag = Math.hypot(width, height);
-        const count = Math.round(diag * 1.5);
-        const clampedCount = Math.max(900, Math.min(count, 1850));
+        const isDesktop = width >= 1024;
+        const clampedCount = isDesktop ? 1150 : 700;
         field = buildField(clampedCount);
 
         // Initial positions at Hero home
@@ -318,6 +317,11 @@ export default function UnifiedParticleFlow({
         }
       }
     };
+
+    let lastP = -999;
+    let lastW = -1;
+    let lastH = -1;
+    let lastLScale = -1;
 
     const updateTargetHomes = (
       f: ParticleField,
@@ -360,18 +364,21 @@ export default function UnifiedParticleFlow({
 
       // FLOW STATE TURBULENCE:
       // When transitioning (0 < p < 1), inject organic swirling streamline vectors
-      const flowIntensity = Math.sin(clamp(p, 0, 1) * Math.PI);
-      const flowMagnitude = flowIntensity * (isDesktop ? 55 : 32);
+      const isTransitioning = p > 0.001 && p < 0.999;
+      const flowMagnitude = isTransitioning ? Math.sin(p * Math.PI) * (isDesktop ? 55 : 32) : 0;
 
       for (let i = 0; i < f.n; i++) {
-        // Individual stream wave per particle
-        const theta = i * 0.173 + p * 5.2;
-        const pushWeight = f.push[i] * 0.7 + 0.3;
-        const streamX = Math.sin(theta) * flowMagnitude * pushWeight;
-        const streamY = Math.cos(theta * 1.25) * (flowMagnitude * 0.6) * pushWeight;
-
-        f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale + streamX;
-        f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale + streamY;
+        if (isTransitioning) {
+          const theta = i * 0.173 + p * 5.2;
+          const pushWeight = f.push[i] * 0.7 + 0.3;
+          const streamX = Math.sin(theta) * flowMagnitude * pushWeight;
+          const streamY = Math.cos(theta * 1.25) * (flowMagnitude * 0.6) * pushWeight;
+          f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale + streamX;
+          f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale + streamY;
+        } else {
+          f.hx[i] = curCx + (f.vx[i] - vbCx) * curScale;
+          f.hy[i] = curCy + (f.vy[i] - vbCy) * curScale;
+        }
       }
     };
 
@@ -385,7 +392,14 @@ export default function UnifiedParticleFlow({
       const pScale = particleScaleRef.current;
       const n = field.n;
 
-      updateTargetHomes(field, p, lScale, pScale, width, height);
+      // Only recompute target coordinates when position or dimensions change
+      if (p !== lastP || width !== lastW || height !== lastH || lScale !== lastLScale) {
+        updateTargetHomes(field, p, lScale, pScale, width, height);
+        lastP = p;
+        lastW = width;
+        lastH = height;
+        lastLScale = lScale;
+      }
 
       const vb = AV_LOGO.viewBox;
       const isDesktop = width >= 1024;
@@ -440,14 +454,8 @@ export default function UnifiedParticleFlow({
         let fy = 0;
 
         if (!burstFree) {
-          const targetX =
-            field.hx[i] +
-            Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i] +
-            Math.cos(totalTime * 2.2 + field.wobPhase[i]) * field.wobBX[i];
-          const targetY =
-            field.hy[i] +
-            Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i] +
-            Math.sin(totalTime * 2.5 + field.wobPhase[i]) * field.wobBY[i];
+          const targetX = field.hx[i] + Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i];
+          const targetY = field.hy[i] + Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i];
 
           const diffX = targetX - field.x[i];
           const diffY = targetY - field.y[i];

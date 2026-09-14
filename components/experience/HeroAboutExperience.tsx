@@ -263,7 +263,7 @@ export default function HeroAboutExperience() {
     >
         {/* Background 1: Hero Filament loop artwork */}
         <div ref={heroBgRef} className="absolute inset-0 z-0">
-          <HeroBackground />
+          <HeroBackground active={currentScreen === 0 || scrollProgress < 0.95} />
         </div>
 
         {/* Background 2: About Stipple matrix artwork */}
@@ -321,8 +321,8 @@ export default function HeroAboutExperience() {
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
               style={{
-                backdropFilter: "blur(24px) saturate(180%)",
-                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                backdropFilter: "blur(20px) saturate(160%)",
+                WebkitBackdropFilter: "blur(20px) saturate(160%)",
                 background:
                   "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(138, 182, 255, 0.03) 30%, rgba(12, 18, 34, 0.62) 60%, rgba(10, 15, 28, 0.72) 100%)",
               }}
@@ -337,9 +337,9 @@ export default function HeroAboutExperience() {
               {/* Ambient Liquid Shimmer / Flowing Caustic Wave Layer */}
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -inset-[50%] opacity-45 mix-blend-color-dodge"
+                className="pointer-events-none absolute -inset-[50%] opacity-40 mix-blend-screen"
               >
-                <div className="animate-liquid-shimmer h-[200%] w-[200%] bg-[radial-gradient(ellipse_60%_50%_at_45%_45%,rgba(138,182,255,0.22)_0%,rgba(91,169,222,0.08)_35%,transparent_65%)]" />
+                <div className="animate-liquid-shimmer will-change-transform h-[200%] w-[200%] bg-[radial-gradient(ellipse_60%_50%_at_45%_45%,rgba(138,182,255,0.22)_0%,rgba(91,169,222,0.08)_35%,transparent_65%)]" />
               </div>
 
               {/* Liquid Glass Fluid Refraction Waves */}

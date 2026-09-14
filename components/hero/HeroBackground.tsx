@@ -29,7 +29,7 @@ const MAX_SHIFT_Y = 12;
 /** Time constant of the lag behind the cursor, in seconds. */
 const FOLLOW_TAU = 0.9;
 
-export default function HeroBackground() {
+export default function HeroBackground({ active = true }: { active?: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
@@ -39,7 +39,7 @@ export default function HeroBackground() {
     const layer = layerRef.current;
     if (!root || !layer) return;
 
-    if (reduced) {
+    if (reduced || !active) {
       layer.style.transform = "";
       return;
     }
@@ -114,7 +114,7 @@ export default function HeroBackground() {
       window.removeEventListener("scroll", measure);
       releasePointer();
     };
-  }, [reduced]);
+  }, [reduced, active]);
 
   return (
     <div
@@ -131,6 +131,7 @@ export default function HeroBackground() {
             width={1700}
             height={956}
             decoding="async"
+            loading="eager"
             draggable={false}
             // Desktop anchors the artwork's left edge, which pushes the
             // filament ribbon as far right — away from the copy — as the

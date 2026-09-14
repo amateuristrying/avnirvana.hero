@@ -22,6 +22,7 @@ export default function AboutBackground() {
             width={1600}
             height={900}
             decoding="async"
+            loading="lazy"
             draggable={false}
             className="block h-full w-full select-none object-cover object-center opacity-85"
           />

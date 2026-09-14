@@ -159,72 +159,7 @@
 
 .animate-liquid-shimmer {
   animation: liquid-shimmer 22s ease-in-out infinite;
-}
-
-/* Liquid Range Slider Styling */
-.liquid-range-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 9999px;
-  outline: none;
-  height: 8px;
-  cursor: pointer;
-  touch-action: none;
-}
-
-.liquid-range-slider::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.liquid-range-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -7px;
-  border-radius: 50%;
-  background: #8ab6ff;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 14px rgba(138, 182, 255, 0.95), 0 2px 8px rgba(0, 0, 0, 0.6);
-  cursor: grab;
-  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.liquid-range-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.18);
-  background: #ffffff;
-  border-color: #3a86ff;
-  box-shadow: 0 0 18px rgba(138, 182, 255, 1), 0 2px 10px rgba(0, 0, 0, 0.7);
-}
-
-.liquid-range-slider::-webkit-slider-thumb:active {
-  cursor: grabbing;
-  transform: scale(1.24);
-  background: #ffffff;
-  border-color: #3a86ff;
-}
-
-.liquid-range-slider::-moz-range-track {
-  height: 8px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.liquid-range-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #8ab6ff;
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 14px rgba(138, 182, 255, 0.95), 0 2px 8px rgba(0, 0, 0, 0.6);
-  cursor: grab;
-}
-
-.liquid-range-slider::-moz-range-thumb:active {
-  cursor: grabbing;
+  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
