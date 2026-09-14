@@ -1037,6 +1037,50 @@ export default function HeroAboutExperience() {
           ref={speakerContentRef}
           className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between px-4 opacity-0 sm:px-6 lg:px-8 py-5 sm:py-7"
         >
+          {/* Far Left Navigation Arrow (Previous Product) */}
+          <button
+            type="button"
+            aria-label="Previous product"
+            onClick={triggerVibrateAndShake}
+            className="group pointer-events-auto absolute left-3 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white backdrop-blur-md transition-all duration-300 hover:scale-110 hover:border-white/45 hover:bg-white/[0.14] active:scale-95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] cursor-pointer"
+            title="Previous product"
+          >
+            <svg
+              className="h-5 w-5 sm:h-5.5 sm:w-5.5 text-white transition-transform duration-300 group-hover:-translate-x-0.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m11 17-5-5 5-5" />
+              <path d="m18 17-5-5 5-5" />
+            </svg>
+          </button>
+
+          {/* Far Right Navigation Arrow (Next Product) */}
+          <button
+            type="button"
+            aria-label="Next product"
+            onClick={triggerVibrateAndShake}
+            className="group pointer-events-auto absolute right-3 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white backdrop-blur-md transition-all duration-300 hover:scale-110 hover:border-white/45 hover:bg-white/[0.14] active:scale-95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] cursor-pointer"
+            title="Next product"
+          >
+            <svg
+              className="h-5 w-5 sm:h-5.5 sm:w-5.5 text-white transition-transform duration-300 group-hover:translate-x-0.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m6 17 5-5-5-5" />
+              <path d="m13 17 5-5-5-5" />
+            </svg>
+          </button>
+
           {/* Top Center: Product Header Hierarchy */}
           <div className="mx-auto max-w-[800px] pt-1 sm:pt-2 text-center will-change-transform">
             <div className="inline-flex items-center justify-center gap-3">
