@@ -162,6 +162,112 @@ export default function HeroAboutExperience() {
   const revealedSpecsRef = useRef(0);
   const lastScrollStepTime = useRef(0);
 
+  // Screen 2 progressive text reveal state (left first, then right on scroll)
+  const [screen2RightRevealed, setScreen2RightRevealed] = useState(false);
+  const screen2RightRevealedRef = useRef(false);
+  const [screen2LeftRevealed, setScreen2LeftRevealed] = useState(false);
+  const screen2LeftRevealedRef = useRef(false);
+
+  const animateLeftText = useCallback((show: boolean) => {
+    const el1 = leftBlock1Ref.current;
+    const el2 = leftBlock2Ref.current;
+    if (!el1 || !el2) return;
+
+    gsap.killTweensOf([el1, el2]);
+
+    if (show) {
+      gsap.fromTo(
+        el1,
+        { opacity: 0, x: -32, y: 18, scale: 0.94 },
+        {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.58,
+          delay: 0.22,
+          ease: "back.out(1.4)",
+          pointerEvents: "auto",
+        }
+      );
+      gsap.fromTo(
+        el2,
+        { opacity: 0, x: -32, y: 18, scale: 0.94 },
+        {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.58,
+          delay: 0.38,
+          ease: "back.out(1.4)",
+          pointerEvents: "auto",
+        }
+      );
+    } else {
+      gsap.to([el2, el1], {
+        opacity: 0,
+        x: -24,
+        y: 12,
+        scale: 0.95,
+        duration: 0.28,
+        stagger: 0.08,
+        ease: "power2.in",
+        pointerEvents: "none",
+      });
+    }
+  }, []);
+
+  const animateRightText = useCallback((show: boolean) => {
+    const el1 = rightBlock1Ref.current;
+    const el2 = rightBlock2Ref.current;
+    if (!el1 || !el2) return;
+
+    gsap.killTweensOf([el1, el2]);
+
+    if (show) {
+      gsap.fromTo(
+        el1,
+        { opacity: 0, x: 32, y: 18, scale: 0.94 },
+        {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.58,
+          delay: 0.06,
+          ease: "back.out(1.4)",
+          pointerEvents: "auto",
+        }
+      );
+      gsap.fromTo(
+        el2,
+        { opacity: 0, x: 32, y: 18, scale: 0.94 },
+        {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          scale: 1,
+          duration: 0.58,
+          delay: 0.22,
+          ease: "back.out(1.4)",
+          pointerEvents: "auto",
+        }
+      );
+    } else {
+      gsap.to([el2, el1], {
+        opacity: 0,
+        x: 24,
+        y: 12,
+        scale: 0.95,
+        duration: 0.28,
+        stagger: 0.08,
+        ease: "power2.in",
+        pointerEvents: "none",
+      });
+    }
+  }, []);
+
   const animateSpecItem = useCallback((index: number, show: boolean) => {
     const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current];
     const el = specEls[index];
@@ -251,6 +357,47 @@ export default function HeroAboutExperience() {
       });
     }
 
+    // Entering Screen 2 (target === 1)
+    if (target === 1) {
+      screen2LeftRevealedRef.current = true;
+      setScreen2LeftRevealed(true);
+      animateLeftText(true);
+
+      if (currentScreenRef.current === 0) {
+        // Arriving from Screen 1 (Hero): right text stays hidden until further scroll
+        screen2RightRevealedRef.current = false;
+        setScreen2RightRevealed(false);
+        const rightEls = [rightBlock1Ref.current, rightBlock2Ref.current];
+        rightEls.forEach((el) => {
+          if (el) {
+            gsap.killTweensOf(el);
+            gsap.set(el, { opacity: 0, x: 32, y: 18, scale: 0.94, pointerEvents: "none" });
+          }
+        });
+      } else if (currentScreenRef.current === 2) {
+        // Returning from Screen 3: right text remains visible
+        screen2RightRevealedRef.current = true;
+        setScreen2RightRevealed(true);
+        const rightEls = [rightBlock1Ref.current, rightBlock2Ref.current];
+        rightEls.forEach((el) => {
+          if (el) {
+            gsap.killTweensOf(el);
+            gsap.set(el, { opacity: 1, x: 0, y: 0, scale: 1, pointerEvents: "auto" });
+          }
+        });
+      }
+    }
+
+    // Returning to Screen 1 (target === 0): reset Screen 2 elements
+    if (target === 0) {
+      screen2LeftRevealedRef.current = false;
+      setScreen2LeftRevealed(false);
+      screen2RightRevealedRef.current = false;
+      setScreen2RightRevealed(false);
+      animateLeftText(false);
+      animateRightText(false);
+    }
+
     const diff = Math.abs(target - currentScreenRef.current);
     const animDuration = diff > 1 ? 0.95 : 0.72;
 
@@ -275,7 +422,7 @@ export default function HeroAboutExperience() {
         }, 220);
       },
     });
-  }, []);
+  }, [animateLeftText, animateRightText]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -353,81 +500,7 @@ export default function HeroAboutExperience() {
         );
       }
 
-      // 5. First text on both sides animated transition (OUR VISION & OUR STORY)
-      if (leftBlock1Ref.current) {
-        tl.fromTo(
-          leftBlock1Ref.current,
-          {
-            opacity: 0,
-            y: 28,
-            x: -16,
-          },
-          {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            ease: "power2.out",
-            duration: 0.3,
-          },
-          0.42,
-        );
-      }
-      if (rightBlock1Ref.current) {
-        tl.fromTo(
-          rightBlock1Ref.current,
-          {
-            opacity: 0,
-            y: 28,
-            x: 16,
-          },
-          {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            ease: "power2.out",
-            duration: 0.3,
-          },
-          0.42,
-        );
-      }
 
-      // 6. Second text on both sides animated transition (OUR COMMITMENT & OUR MISSION)
-      if (leftBlock2Ref.current) {
-        tl.fromTo(
-          leftBlock2Ref.current,
-          {
-            opacity: 0,
-            y: 28,
-            x: -16,
-          },
-          {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            ease: "power2.out",
-            duration: 0.3,
-          },
-          0.66,
-        );
-      }
-      if (rightBlock2Ref.current) {
-        tl.fromTo(
-          rightBlock2Ref.current,
-          {
-            opacity: 0,
-            y: 28,
-            x: 16,
-          },
-          {
-            opacity: 1,
-            y: 0,
-            x: 0,
-            ease: "power2.out",
-            duration: 0.3,
-          },
-          0.66,
-        );
-      }
 
       // ============================================================
       // SCREEN 2 -> SCREEN 3 (Time 1.0 to 2.0)
@@ -518,14 +591,51 @@ export default function HeroAboutExperience() {
 
       if (animatingRef.current) return;
 
+      // On Screen 2: progressive reveal of right text before moving to Screen 3
+      if (currentScreenRef.current === 1) {
+        const now = Date.now();
+        if (e.deltaY > 0) {
+          // Scroll down
+          if (!screen2RightRevealedRef.current) {
+            if (now - lastScrollStepTime.current > 240) {
+              lastScrollStepTime.current = now;
+              screen2RightRevealedRef.current = true;
+              setScreen2RightRevealed(true);
+              animateRightText(true);
+            }
+            return;
+          } else {
+            // Right text already revealed: proceed to Screen 3
+            if (now - lastScrollStepTime.current > 280) {
+              lastScrollStepTime.current = now;
+              goToScreen(2);
+              setTimeout(triggerVibrateAndShake, 520);
+            }
+            return;
+          }
+        } else if (e.deltaY < 0) {
+          // Scroll up
+          if (screen2RightRevealedRef.current) {
+            if (now - lastScrollStepTime.current > 240) {
+              lastScrollStepTime.current = now;
+              screen2RightRevealedRef.current = false;
+              setScreen2RightRevealed(false);
+              animateRightText(false);
+            }
+            return;
+          } else {
+            // Right text not revealed: return to Screen 0 (Hero)
+            if (now - lastScrollStepTime.current > 280) {
+              lastScrollStepTime.current = now;
+              goToScreen(0);
+            }
+            return;
+          }
+        }
+      }
+
       if (e.deltaY > 0) {
         if (currentScreenRef.current === 0) goToScreen(1);
-        else if (currentScreenRef.current === 1) {
-          goToScreen(2);
-          setTimeout(triggerVibrateAndShake, 520);
-        }
-      } else if (e.deltaY < 0) {
-        if (currentScreenRef.current === 1) goToScreen(0);
       }
     };
 
@@ -592,14 +702,49 @@ export default function HeroAboutExperience() {
           }
         }
 
+        // On Screen 2: progressive reveal of right text
+        if (currentScreenRef.current === 1) {
+          const now = Date.now();
+          if (diffY > 0) {
+            // Swipe up (scroll down)
+            if (!screen2RightRevealedRef.current) {
+              if (now - lastScrollStepTime.current > 200) {
+                lastScrollStepTime.current = now;
+                screen2RightRevealedRef.current = true;
+                setScreen2RightRevealed(true);
+                animateRightText(true);
+              }
+              return;
+            } else {
+              if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+                lastScrollStepTime.current = now;
+                goToScreen(2);
+                setTimeout(triggerVibrateAndShake, 520);
+              }
+              return;
+            }
+          } else if (diffY < 0) {
+            // Swipe down (scroll up)
+            if (screen2RightRevealedRef.current) {
+              if (now - lastScrollStepTime.current > 200) {
+                lastScrollStepTime.current = now;
+                screen2RightRevealedRef.current = false;
+                setScreen2RightRevealed(false);
+                animateRightText(false);
+              }
+              return;
+            } else {
+              if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+                lastScrollStepTime.current = now;
+                goToScreen(0);
+              }
+              return;
+            }
+          }
+        }
+
         if (diffY > 0) {
           if (currentScreenRef.current === 0) goToScreen(1);
-          else if (currentScreenRef.current === 1) {
-            goToScreen(2);
-            setTimeout(triggerVibrateAndShake, 520);
-          }
-        } else if (diffY < 0) {
-          if (currentScreenRef.current === 1) goToScreen(0);
         }
       }
     };
@@ -642,20 +787,52 @@ export default function HeroAboutExperience() {
         }
       }
 
+      // Keyboard navigation on Screen 2
+      if (currentScreenRef.current === 1) {
+        const now = Date.now();
+        if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
+          e.preventDefault();
+          if (!screen2RightRevealedRef.current) {
+            if (now - lastScrollStepTime.current > 200) {
+              lastScrollStepTime.current = now;
+              screen2RightRevealedRef.current = true;
+              setScreen2RightRevealed(true);
+              animateRightText(true);
+            }
+            return;
+          } else {
+            if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+              lastScrollStepTime.current = now;
+              goToScreen(2);
+              setTimeout(triggerVibrateAndShake, 520);
+            }
+            return;
+          }
+        } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
+          e.preventDefault();
+          if (screen2RightRevealedRef.current) {
+            if (now - lastScrollStepTime.current > 200) {
+              lastScrollStepTime.current = now;
+              screen2RightRevealedRef.current = false;
+              setScreen2RightRevealed(false);
+              animateRightText(false);
+            }
+            return;
+          } else {
+            if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+              lastScrollStepTime.current = now;
+              goToScreen(0);
+            }
+            return;
+          }
+        }
+      }
+
       if (animatingRef.current) return;
       if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
         if (currentScreenRef.current === 0) {
           e.preventDefault();
           goToScreen(1);
-        } else if (currentScreenRef.current === 1) {
-          e.preventDefault();
-          goToScreen(2);
-          setTimeout(triggerVibrateAndShake, 520);
-        }
-      } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
-        if (currentScreenRef.current === 1) {
-          e.preventDefault();
-          goToScreen(0);
         }
       }
     };
@@ -790,7 +967,11 @@ export default function HeroAboutExperience() {
             <div className="mt-8 grid grid-cols-1 items-center gap-y-8 lg:mt-6 lg:grid-cols-[1fr_minmax(320px,460px)_1fr] lg:gap-x-8 xl:gap-x-12">
               {/* Left Side: OUR VISION & OUR COMMITMENT (Left Aligned) */}
               <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
-                <div ref={leftBlock1Ref} className="will-change-transform">
+                <div
+                  ref={leftBlock1Ref}
+                  className="will-change-transform"
+                  style={{ opacity: 0, transform: "translateX(-32px) translateY(18px) scale(0.94)", pointerEvents: "none" }}
+                >
                   <AboutContentBlock
                     align="left"
                     tag="OUR VISION"
@@ -803,7 +984,11 @@ export default function HeroAboutExperience() {
                   />
                 </div>
 
-                <div ref={leftBlock2Ref} className="will-change-transform">
+                <div
+                  ref={leftBlock2Ref}
+                  className="will-change-transform"
+                  style={{ opacity: 0, transform: "translateX(-32px) translateY(18px) scale(0.94)", pointerEvents: "none" }}
+                >
                   <AboutContentBlock
                     align="left"
                     tag="OUR COMMITMENT"
@@ -822,7 +1007,11 @@ export default function HeroAboutExperience() {
 
               {/* Right Side: OUR STORY & OUR MISSION (Right Aligned) */}
               <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
-                <div ref={rightBlock1Ref} className="will-change-transform">
+                <div
+                  ref={rightBlock1Ref}
+                  className="will-change-transform"
+                  style={{ opacity: 0, transform: "translateX(32px) translateY(18px) scale(0.94)", pointerEvents: "none" }}
+                >
                   <AboutContentBlock
                     align="right"
                     tag="OUR STORY"
@@ -835,7 +1024,11 @@ export default function HeroAboutExperience() {
                   />
                 </div>
 
-                <div ref={rightBlock2Ref} className="will-change-transform">
+                <div
+                  ref={rightBlock2Ref}
+                  className="will-change-transform"
+                  style={{ opacity: 0, transform: "translateX(32px) translateY(18px) scale(0.94)", pointerEvents: "none" }}
+                >
                   <AboutContentBlock
                     align="right"
                     tag="OUR MISSION"
