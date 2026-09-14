@@ -1,9 +1,9 @@
-import Hero from "@/components/hero/Hero";
+import HeroAboutExperience from "@/components/experience/HeroAboutExperience";
 
 export default function Page() {
   return (
     <main>
-      <Hero />
+      <HeroAboutExperience />
     </main>
   );
 }
