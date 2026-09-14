@@ -266,9 +266,9 @@ export default function HeroAboutExperience() {
           <HeroBackground active={currentScreen === 0 || scrollProgress < 0.95} />
         </div>
 
-        {/* Background 2: About Stipple matrix artwork */}
+        {/* Background 2: About Ferrofluid artwork */}
         <div ref={aboutBgRef} className="absolute inset-0 z-0 opacity-0">
-          <AboutBackground />
+          <AboutBackground active={currentScreen === 1 || scrollProgress > 0.05} />
         </div>
 
         {/*
