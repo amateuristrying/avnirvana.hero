@@ -247,9 +247,9 @@ export default function Ferrofluid({
     if (!container) return;
 
     const renderer = new Renderer({
-      dpr: dpr ?? (typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.5) : 1),
+      dpr: dpr ?? (typeof window !== "undefined" ? 1.0 : 1),
       alpha: true,
-      antialias: true,
+      antialias: false,
     });
     rendererRef.current = renderer;
     const gl = renderer.gl;
@@ -324,6 +324,7 @@ export default function Ferrofluid({
     }
 
     const loop = (t: number) => {
+      if (paused) return;
       rafRef.current = requestAnimationFrame(loop);
       uniforms.iTime.value = t * 0.001;
       if (mouseDampening > 0) {
@@ -340,7 +341,7 @@ export default function Ferrofluid({
       } else {
         lastTimeRef.current = t;
       }
-      if (!paused && programRef.current && meshRef.current) {
+      if (programRef.current && meshRef.current) {
         try {
           renderer.render({ scene: meshRef.current });
         } catch (e) {
@@ -348,7 +349,10 @@ export default function Ferrofluid({
         }
       }
     };
-    rafRef.current = requestAnimationFrame(loop);
+
+    if (!paused) {
+      rafRef.current = requestAnimationFrame(loop);
+    }
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);

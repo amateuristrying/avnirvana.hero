@@ -53,13 +53,6 @@ const DAMPING_BASE = 4.4;
 const REPEL_RADIUS = 0.65;
 const REPEL_STRENGTH = 25.0;
 
-const DISTURB_TRIGGER = 4;
-const DISTURB_DECAY = 1.8;
-const BURST_COOLDOWN = 2.5;
-const BURST_FLY = 0.42;
-const BURST_TOTAL = 2.15;
-const BURST_TRAVEL = 0.27;
-
 const SPRITE_RES = 16;
 const SPRITE_SOLID = 0.58;
 const SPRITE_OVERDRAW = 1 / SPRITE_SOLID;
@@ -282,10 +275,6 @@ export default function UnifiedParticleFlow({
     let running = true;
     let raf = 0;
     let last = performance.now();
-    let disturb = 0;
-    let phaseTime = 0;
-    let burstTime = 0;
-    let isBurst = false;
 
     const releasePointer = subscribePointer();
     const pointer = getPointer();
@@ -306,7 +295,7 @@ export default function UnifiedParticleFlow({
 
       if (!field) {
         const isDesktop = width >= 1024;
-        const clampedCount = isDesktop ? 1150 : 700;
+        const clampedCount = isDesktop ? 800 : 450;
         field = buildField(clampedCount);
 
         // Initial positions at Hero home
@@ -414,66 +403,30 @@ export default function UnifiedParticleFlow({
       const cursorX = pointer.x;
       const cursorY = pointer.y;
 
-      // Disturbance burst logic
-      if (!reduced) {
-        if (inside) {
-          disturb = Math.min(disturb + dt, DISTURB_TRIGGER);
-          if (disturb >= DISTURB_TRIGGER && !isBurst) {
-            isBurst = true;
-            burstTime = 0;
-            const cx = width * 0.5;
-            const cy = height * 0.5;
-            const impulseMax = Math.hypot(width, height) * 0.45;
-            for (let i = 0; i < n; i++) {
-              const dx = field.hx[i] - cx;
-              const dy = field.hy[i] - cy;
-              const d = Math.hypot(dx, dy) || 1;
-              const speed = (0.5 + field.push[i] * 0.7) * (impulseMax / BURST_TRAVEL);
-              field.velX[i] += (dx / d) * speed;
-              field.velY[i] += (dy / d) * speed;
-            }
-          }
-        } else {
-          disturb = Math.max(disturb - dt * DISTURB_DECAY, 0);
-        }
-      }
-
-      if (isBurst) {
-        burstTime += dt;
-        if (burstTime >= BURST_TOTAL) {
-          isBurst = false;
-          disturb = -BURST_COOLDOWN;
-        }
-      }
-
-      const burstFree = isBurst && burstTime < BURST_FLY;
-      const springBlend = isBurst ? smoothstep(BURST_FLY, BURST_TOTAL, burstTime) : 1;
-
       for (let i = 0; i < n; i++) {
-        let fx = 0;
-        let fy = 0;
+        const targetX = field.hx[i] + Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i];
+        const targetY = field.hy[i] + Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i];
 
-        if (!burstFree) {
-          const targetX = field.hx[i] + Math.sin(totalTime * 1.3 + field.wobPhase[i]) * field.wobAX[i];
-          const targetY = field.hy[i] + Math.cos(totalTime * 1.4 + field.wobPhase[i]) * field.wobAY[i];
+        const diffX = targetX - field.x[i];
+        const diffY = targetY - field.y[i];
 
-          const diffX = targetX - field.x[i];
-          const diffY = targetY - field.y[i];
-
-          fx += diffX * field.stiff[i] * springBlend;
-          fy += diffY * field.stiff[i] * springBlend;
-        }
+        let fx = diffX * field.stiff[i];
+        let fy = diffY * field.stiff[i];
 
         if (inside) {
           const dx = field.x[i] - cursorX;
-          const dy = field.y[i] - cursorY;
-          const dSq = dx * dx + dy * dy;
-          if (dSq < rReachSq && dSq > 0.001) {
-            const d = Math.sqrt(dSq);
-            const factor = Math.max(0, 1 - d / rReach);
-            const repForce = factor * factor * repelAcc * field.push[i];
-            fx += (dx / d) * repForce;
-            fy += (dy / d) * repForce;
+          if (Math.abs(dx) < rReach) {
+            const dy = field.y[i] - cursorY;
+            if (Math.abs(dy) < rReach) {
+              const dSq = dx * dx + dy * dy;
+              if (dSq < rReachSq && dSq > 0.001) {
+                const d = Math.sqrt(dSq);
+                const factor = 1 - d / rReach;
+                const repForce = factor * factor * repelAcc * field.push[i];
+                fx += (dx / d) * repForce;
+                fy += (dy / d) * repForce;
+              }
+            }
           }
         }
 
@@ -497,13 +450,8 @@ export default function UnifiedParticleFlow({
       const pScale = particleScaleRef.current;
       const easedP = easeInOutCubic(p);
 
-      // Interpolate alpha weights between hero palette and about palette
-      const heroAlphaWeight = 1 - easedP;
-      const aboutAlphaWeight = easedP;
-
       for (let t = 0; t < HERO_TIERS.length; t++) {
-        const heroSprite = heroSprites[t];
-        const aboutSprite = aboutSprites[t];
+        const sprite = easedP < 0.5 ? heroSprites[t] : aboutSprites[t];
         const start = field.tierStart[t];
         const len = field.tierLen[t];
 
@@ -513,23 +461,10 @@ export default function UnifiedParticleFlow({
         const currentSize = heroSize + (aboutSize - heroSize) * easedP;
         const half = currentSize * 0.5;
 
-        // Draw Hero layer (fades out as scroll progresses)
-        if (heroAlphaWeight > 0.02) {
-          ctx.globalAlpha = heroAlphaWeight;
-          for (let i = start; i < start + len; i++) {
-            ctx.drawImage(heroSprite, field.x[i] - half, field.y[i] - half, currentSize, currentSize);
-          }
-        }
-
-        // Draw About layer (cool blue & soft white, scales in as scroll progresses)
-        if (aboutAlphaWeight > 0.02) {
-          ctx.globalAlpha = aboutAlphaWeight;
-          for (let i = start; i < start + len; i++) {
-            ctx.drawImage(aboutSprite, field.x[i] - half, field.y[i] - half, currentSize, currentSize);
-          }
+        for (let i = start; i < start + len; i++) {
+          ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, currentSize, currentSize);
         }
       }
-      ctx.globalAlpha = 1.0;
     };
 
     const frame = (now: number) => {

@@ -263,12 +263,12 @@ export default function HeroAboutExperience() {
     >
         {/* Background 1: Hero Filament loop artwork */}
         <div ref={heroBgRef} className="absolute inset-0 z-0">
-          <HeroBackground active={currentScreen === 0 || scrollProgress < 0.95} />
+          <HeroBackground active={currentScreen === 0 || scrollProgress < 0.6} />
         </div>
 
         {/* Background 2: About Ferrofluid artwork */}
         <div ref={aboutBgRef} className="absolute inset-0 z-0 opacity-0">
-          <AboutBackground active={currentScreen === 1 || scrollProgress > 0.05} />
+          <AboutBackground active={currentScreen === 1 || scrollProgress > 0.4} />
         </div>
 
         {/*
