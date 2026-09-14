@@ -379,7 +379,6 @@ export default function Ferrofluid({
   }, [
     dpr,
     paused,
-    colors,
     speed,
     scale,
     turbulence,
@@ -395,6 +394,25 @@ export default function Ferrofluid({
     mouseRadius,
     mouseDampening,
   ]);
+
+  // Reactive color uniform updates without WebGL teardown
+  useEffect(() => {
+    if (!programRef.current) return;
+    const { arr, count, avg } = prepColors(colors);
+    const u = programRef.current.uniforms;
+    if (u) {
+      if (u.uColor0) u.uColor0.value = arr[0];
+      if (u.uColor1) u.uColor1.value = arr[1];
+      if (u.uColor2) u.uColor2.value = arr[2];
+      if (u.uColor3) u.uColor3.value = arr[3];
+      if (u.uColor4) u.uColor4.value = arr[4];
+      if (u.uColor5) u.uColor5.value = arr[5];
+      if (u.uColor6) u.uColor6.value = arr[6];
+      if (u.uColor7) u.uColor7.value = arr[7];
+      if (u.uColorCount) u.uColorCount.value = count;
+      if (u.uMouseColor) u.uMouseColor.value = avg;
+    }
+  }, [colors]);
 
   return (
     <div

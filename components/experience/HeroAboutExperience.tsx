@@ -16,6 +16,140 @@ const HERO_PARTICLE_SCALE = 1.9;
 const SCREEN3_WAVE_ARC_LENGTH = 0.85;
 const SCREEN3_WAVE_DENSITY = 0.8;
 
+interface ProductSpec {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}
+
+interface Product {
+  id: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  imageSrc: string;
+  imageAlt: string;
+  imageScale: number;
+  imageDropShadow: string;
+  accentGlow: string;
+  ctaText: string;
+  ctaHref: string;
+  specs: ProductSpec[];
+}
+
+const PRODUCTS: Product[] = [
+  {
+    id: "air-c8",
+    badge: "OUR FLAGSHIP PRODUCT",
+    title: "AIR-C8",
+    subtitle: "PASSIVE INSTALLATION SPEAKER",
+    description: "Compact form. Powerful performance.\nEngineered for exceptional sound in any space.",
+    imageSrc: "/speaker.png",
+    imageAlt: "AIR-C8 Passive Installation Speaker",
+    imageScale: 1.2,
+    imageDropShadow: "drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_50px_rgba(138,182,255,0.20)]",
+    accentGlow: "rgba(138,182,255,0.85)",
+    ctaText: "BRANDS WE'VE WORKED WITH",
+    ctaHref: "#brands",
+    specs: [
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
+          </svg>
+        ),
+        title: "RICH, HIGH-FIDELITY SOUND",
+        desc: '8" long-excursion woofer with HF driver',
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <path d="m3.27 6.96 8.73 5.04 8.73-5.04M12 22.08V12" />
+          </svg>
+        ),
+        title: "COMPACT & VERSATILE",
+        desc: "Ideal for retail, entertainment, malls and club settings.",
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m2 7 10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5" />
+          </svg>
+        ),
+        title: "ADVANCED COMPOSITE CABINET",
+        desc: "Low distortion, reduced resonance, clearer sound.",
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+          </svg>
+        ),
+        title: "BUILT TO LAST",
+        desc: "Weather-resistant with IP54 rating.",
+      },
+    ],
+  },
+  {
+    id: "squareroot-6-5",
+    badge: "OUR OUTDOOR SOLUTION",
+    title: "SQUAREROOT 6.5",
+    subtitle: "OMNIDIRECTIONAL PLANTER SPEAKER",
+    description: "Blends naturally. Sounds exceptionally.\nPremium outdoor audio, designed for any space.",
+    imageSrc: "/outdoor-speaker.png",
+    imageAlt: "SQUAREROOT 6.5 Omnidirectional Planter Speaker",
+    imageScale: 1.25,
+    imageDropShadow: "drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_55px_rgba(34,197,94,0.30)]",
+    accentGlow: "rgba(34,197,94,0.85)",
+    ctaText: "SOUND FOR A BRIGHTER TOMORROW",
+    ctaHref: "#brands",
+    specs: [
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
+          </svg>
+        ),
+        title: "360° DYNAMIC AUDIO",
+        desc: 'Coaxial 6.5" woofer with 0.75" dome tweeter for omnidirectional sound.',
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22v-9" />
+            <path d="M9 8c0-3.5 3-5 3-5s3 1.5 3 5a3 3 0 0 1-6 0z" />
+            <path d="M12 13a6 6 0 0 0 6-6c-2 0-4 1-5 2.5" />
+            <path d="M12 15a6 6 0 0 1-6-6c2 0 4 1 5 2.5" />
+          </svg>
+        ),
+        title: "BLENDS WITH NATURE",
+        desc: 'Functional 20" square planter with drainage holes.',
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        ),
+        title: "WEATHER-RESISTANT",
+        desc: "UV-stable, durable polyethylene built for the outdoors.",
+      },
+      {
+        icon: (
+          <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <path d="m3.27 6.96 8.73 5.04 8.73-5.04M12 22.08V12" />
+          </svg>
+        ),
+        title: "STYLISH & VERSATILE",
+        desc: "Available in Granite Grey or Terra Cotta.",
+      },
+    ],
+  },
+];
+
 export default function HeroAboutExperience() {
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +182,14 @@ export default function HeroAboutExperience() {
 
   // Realtime scroll progress passed to the unified canvas (0.0 to 2.0)
   const [scrollProgress, setScrollProgress] = useState(0);
+
+  // Product carousel tracking on Screen 3: 0 = AIR-C8, 1 = SQUAREROOT 6.5
+  const [currentProductIndex, setCurrentProductIndex] = useState(0);
+  const currentProductIndexRef = useRef(0);
+  const switchingProductRef = useRef(false);
+
+  const productHeaderRef = useRef<HTMLDivElement>(null);
+  const speakerImageWrapRef = useRef<HTMLDivElement>(null);
 
   // Rate-limiting for tactile speaker shake and device vibration
   const lastShakeTime = useRef(0);
@@ -311,6 +453,73 @@ export default function HeroAboutExperience() {
       animateSpecItem(nextIndex, true);
     }
   }, [triggerVibrateAndShake, animateSpecItem]);
+
+  const switchProduct = useCallback(
+    (direction: "next" | "prev") => {
+      if (switchingProductRef.current) return;
+      switchingProductRef.current = true;
+      triggerVibrateAndShake();
+
+      // 1. Immediately reset the 4 bottom spec points to hidden
+      revealedSpecsRef.current = 0;
+      setRevealedSpecs(0);
+      const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current, specCtaRef.current];
+      specEls.forEach((el) => {
+        if (el) {
+          gsap.killTweensOf(el);
+          gsap.set(el, { opacity: 0, y: 28, scale: 0.94, pointerEvents: "none" });
+        }
+      });
+
+      const dir = direction === "next" ? 1 : -1;
+      const headerEl = productHeaderRef.current;
+      const speakerWrapEl = speakerImageWrapRef.current;
+      const targets = [headerEl, speakerWrapEl].filter(Boolean);
+
+      // 2. Animate out current product
+      gsap.to(targets, {
+        opacity: 0,
+        x: -dir * 38,
+        scale: 0.92,
+        duration: 0.26,
+        ease: "power2.in",
+        onComplete: () => {
+          const nextIdx =
+            direction === "next"
+              ? (currentProductIndexRef.current + 1) % PRODUCTS.length
+              : (currentProductIndexRef.current - 1 + PRODUCTS.length) % PRODUCTS.length;
+          currentProductIndexRef.current = nextIdx;
+          setCurrentProductIndex(nextIdx);
+
+          // 3. Animate in new product
+          gsap.fromTo(
+            targets,
+            { opacity: 0, x: dir * 38, scale: 0.92 },
+            {
+              opacity: 1,
+              x: 0,
+              scale: 1,
+              duration: 0.42,
+              ease: "power2.out",
+              onComplete: () => {
+                switchingProductRef.current = false;
+                triggerVibrateAndShake();
+              },
+            }
+          );
+        },
+      });
+    },
+    [triggerVibrateAndShake]
+  );
+
+  const handlePrevProduct = useCallback(() => {
+    switchProduct("prev");
+  }, [switchProduct]);
+
+  const handleNextProduct = useCallback(() => {
+    switchProduct("next");
+  }, [switchProduct]);
 
   // Sync CTA visibility when all 4 specs are revealed
   useEffect(() => {
@@ -872,6 +1081,8 @@ export default function HeroAboutExperience() {
     };
   }, [goToScreen]);
 
+  const activeProduct = PRODUCTS[currentProductIndex] || PRODUCTS[0];
+
   return (
     <div
       ref={viewportRef}
@@ -884,7 +1095,10 @@ export default function HeroAboutExperience() {
 
         {/* Background 2: About Ferrofluid artwork */}
         <div ref={aboutBgRef} className="absolute inset-0 z-0 opacity-0">
-          <AboutBackground active={currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4} />
+          <AboutBackground
+            active={currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4}
+            theme={currentProductIndex === 1 ? "green" : "blue"}
+          />
         </div>
 
         {/*
@@ -895,6 +1109,7 @@ export default function HeroAboutExperience() {
         <div ref={particleCanvasWrapRef} className="absolute inset-0 z-10 pointer-events-none">
           <UnifiedParticleFlow
             progress={scrollProgress}
+            productIndex={currentProductIndex}
             logoScale={SCREEN2_LOGO_SCALE}
             particleScale={SCREEN2_PARTICLE_SCALE}
             heroParticleScale={HERO_PARTICLE_SCALE}
@@ -1041,7 +1256,7 @@ export default function HeroAboutExperience() {
           <button
             type="button"
             aria-label="Previous product"
-            onClick={triggerVibrateAndShake}
+            onClick={handlePrevProduct}
             className="group pointer-events-auto absolute left-3 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white backdrop-blur-md transition-all duration-300 hover:scale-110 hover:border-white/45 hover:bg-white/[0.14] active:scale-95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] cursor-pointer"
             title="Previous product"
           >
@@ -1063,7 +1278,7 @@ export default function HeroAboutExperience() {
           <button
             type="button"
             aria-label="Next product"
-            onClick={triggerVibrateAndShake}
+            onClick={handleNextProduct}
             className="group pointer-events-auto absolute right-3 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white backdrop-blur-md transition-all duration-300 hover:scale-110 hover:border-white/45 hover:bg-white/[0.14] active:scale-95 drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)] cursor-pointer"
             title="Next product"
           >
@@ -1082,35 +1297,48 @@ export default function HeroAboutExperience() {
           </button>
 
           {/* Top Center: Product Header Hierarchy */}
-          <div className="mx-auto max-w-[800px] pt-1 sm:pt-2 text-center will-change-transform">
+          <div
+            ref={productHeaderRef}
+            className="mx-auto max-w-[800px] pt-1 sm:pt-2 text-center will-change-transform"
+          >
             <div className="inline-flex items-center justify-center gap-3">
-              <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
+              <span
+                className="h-px w-8 transition-colors duration-500"
+                style={{
+                  background: `linear-gradient(90deg,transparent,${activeProduct.accentGlow})`,
+                }}
+              />
               <span className="text-[11px] font-semibold tracking-[0.26em] text-fg-mute/90 uppercase sm:text-[11.5px]">
-                OUR FLAGSHIP PRODUCT
+                {activeProduct.badge}
               </span>
-              <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
+              <span
+                className="h-px w-8 transition-colors duration-500"
+                style={{
+                  background: `linear-gradient(90deg,${activeProduct.accentGlow},transparent)`,
+                }}
+              />
             </div>
 
             <h2 className="mt-1 text-[clamp(2.4rem,4.2vw,3.8rem)] font-extrabold leading-[1.04] tracking-[-0.035em] text-fg drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)]">
-              AIR-C8
+              {activeProduct.title}
             </h2>
 
             <p className="mt-1 text-[10.5px] font-semibold tracking-[0.28em] text-fg-mute/85 uppercase sm:text-[11px]">
-              PASSIVE INSTALLATION SPEAKER
+              {activeProduct.subtitle}
             </p>
 
-            <p className="mx-auto mt-2 max-w-[48ch] text-[clamp(0.84rem,0.94vw,0.96rem)] font-light leading-[1.52] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-              Compact form. Powerful performance.
-              <br className="hidden sm:inline" /> Engineered for exceptional sound in any space.
+            <p className="mx-auto mt-2 max-w-[50ch] whitespace-pre-line text-[clamp(0.84rem,0.94vw,0.96rem)] font-light leading-[1.52] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+              {activeProduct.description}
             </p>
           </div>
 
           {/* Centered Speaker Presentation (Framed by acoustic particle sound waves) */}
           <div className="relative flex flex-1 items-center justify-center py-1">
             <div
+              ref={speakerImageWrapRef}
               className="relative flex items-center justify-center will-change-transform"
               style={{
-                transform: "scale(1.2)",
+                transform: `scale(${activeProduct.imageScale})`,
               }}
             >
               <div
@@ -1120,9 +1348,10 @@ export default function HeroAboutExperience() {
                 title="Click or scroll to reveal features and feel acoustic rumble"
               >
                 <img
-                  src="/speaker.png"
-                  alt="AIR-C8 Passive Installation Speaker"
-                  className="h-[42vh] max-h-[440px] min-h-[250px] w-auto max-w-[78vw] object-contain drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_50px_rgba(138,182,255,0.20)] select-none pointer-events-none"
+                  key={activeProduct.id}
+                  src={activeProduct.imageSrc}
+                  alt={activeProduct.imageAlt}
+                  className={`h-[42vh] max-h-[440px] min-h-[250px] w-auto max-w-[78vw] object-contain ${activeProduct.imageDropShadow} select-none pointer-events-none`}
                   draggable={false}
                 />
               </div>
@@ -1132,90 +1361,40 @@ export default function HeroAboutExperience() {
           {/* Bottom Specifications (4 Columns with clean SVG icons, revealed one by one on scroll) */}
           <div className="mx-auto w-full max-w-[1360px] pb-1 sm:pb-2">
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-2 sm:gap-x-8 sm:px-4 md:grid-cols-4 lg:gap-x-12">
-              {/* Feature 1: Sound */}
-              <div
-                ref={spec1Ref}
-                className="flex items-center gap-3 sm:gap-4 will-change-transform"
-                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
-                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
-                  </svg>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
-                    RICH, HIGH-FIDELITY SOUND
-                  </h4>
-                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
-                    8&quot; long-excursion woofer with HF driver
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 2: Versatility */}
-              <div
-                ref={spec2Ref}
-                className="flex items-center gap-3 sm:gap-4 will-change-transform"
-                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
-                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                    <path d="m3.27 6.96 8.73 5.04 8.73-5.04M12 22.08V12" />
-                  </svg>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
-                    COMPACT &amp; VERSATILE
-                  </h4>
-                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
-                    Ideal for retail, entertainment, malls and club settings.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 3: Composite Cabinet */}
-              <div
-                ref={spec3Ref}
-                className="flex items-center gap-3 sm:gap-4 will-change-transform"
-                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
-                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m2 7 10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5" />
-                  </svg>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
-                    ADVANCED COMPOSITE CABINET
-                  </h4>
-                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
-                    Low distortion, reduced resonance, clearer sound.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 4: Built to Last */}
-              <div
-                ref={spec4Ref}
-                className="flex items-center gap-3 sm:gap-4 will-change-transform"
-                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
-                  <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-                  </svg>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
-                    BUILT TO LAST
-                  </h4>
-                  <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
-                    Weather-resistant with IP54 rating.
-                  </p>
-                </div>
-              </div>
+              {activeProduct.specs.map((spec, idx) => {
+                const ref =
+                  idx === 0
+                    ? spec1Ref
+                    : idx === 1
+                    ? spec2Ref
+                    : idx === 2
+                    ? spec3Ref
+                    : spec4Ref;
+                return (
+                  <div
+                    key={`${activeProduct.id}-${idx}`}
+                    ref={ref}
+                    className="flex items-center gap-3 sm:gap-4 will-change-transform"
+                    style={{
+                      opacity: 0,
+                      transform: "translateY(28px) scale(0.94)",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
+                      {spec.icon}
+                    </div>
+                    <div className="flex flex-col">
+                      <h4 className="text-[11px] font-bold tracking-[0.10em] text-fg uppercase sm:text-[11.5px]">
+                        {spec.title}
+                      </h4>
+                      <p className="mt-0.5 text-[10.5px] font-light leading-[1.38] text-fg-mute sm:text-[11px]">
+                        {spec.desc}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Bottom Link CTA */}
@@ -1225,7 +1404,7 @@ export default function HeroAboutExperience() {
               style={{ opacity: 0, transform: "translateY(14px)", pointerEvents: "none" }}
             >
               <a
-                href="#brands"
+                href={activeProduct.ctaHref}
                 className="group flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300 hover:opacity-85"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/5 text-fg-mute backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0.5">
@@ -1234,7 +1413,7 @@ export default function HeroAboutExperience() {
                   </svg>
                 </div>
                 <span className="text-[10px] font-semibold tracking-[0.24em] text-fg-mute/80 uppercase transition-colors group-hover:text-fg">
-                  BRANDS WE&apos;VE WORKED WITH
+                  {activeProduct.ctaText}
                 </span>
               </a>
             </div>

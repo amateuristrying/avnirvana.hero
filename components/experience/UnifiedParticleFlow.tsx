@@ -38,6 +38,15 @@ const ABOUT_TIERS = [
   { rgb: "110,115,128", alpha: 0.40, size: 0.95 }, // Deep Slate Grey
 ];
 
+// Product 2 Color Tiers (Vivid Emerald, Mint Green & Stipple White)
+const GREEN_TIERS = [
+  { rgb: "255,255,255", alpha: 0.98, size: 1.62 }, // Brilliant Diamond White
+  { rgb: "110,250,175", alpha: 0.95, size: 1.50 }, // Glowing Mint Neon Green
+  { rgb: "52,211,153", alpha: 0.90, size: 1.36 },  // Bright Emerald Green
+  { rgb: "16,185,129", alpha: 0.78, size: 1.22 },  // Rich Botanical Green
+  { rgb: "5,150,105", alpha: 0.50, size: 1.04 },   // Deep Forest Accent
+];
+
 const CORE_TIER_WEIGHTS = [0.32, 0.30, 0.24, 0.11, 0.03];
 const HALO_TIER_WEIGHTS = [0, 0.04, 0.14, 0.42, 0.40];
 
@@ -122,6 +131,9 @@ interface ParticleField {
   waveBand: Uint8Array;
   waveAngle: Float32Array;
   waveRadialOffset: Float32Array;
+  // Product 2 (Planter Speaker) Sinusoidal Wave Coordinates
+  waveGreenT: Float32Array;
+  waveGreenCrossOffset: Float32Array;
 }
 
 function buildField(count: number, seed = 20260913): ParticleField {
@@ -193,6 +205,8 @@ function buildField(count: number, seed = 20260913): ParticleField {
   const waveBand = new Uint8Array(n);
   const waveAngle = new Float32Array(n);
   const waveRadialOffset = new Float32Array(n);
+  const waveGreenT = new Float32Array(n);
+  const waveGreenCrossOffset = new Float32Array(n);
 
   for (let i = 0; i < n; i++) {
     const orig = perm[i];
@@ -215,12 +229,10 @@ function buildField(count: number, seed = 20260913): ParticleField {
     wobBY[i] = (rng() - 0.5) * 1.0;
     wobPhase[i] = rng() * Math.PI * 2;
 
-    // Symmetrical 50/50 distribution: left (-1) vs right (+1) sound waves
+    // Symmetrical 50/50 distribution: left (-1) vs right (+1) sound waves (Product 1)
     waveSide[i] = i % 2 === 0 ? -1 : 1;
 
     // 4 concentric bands (0 = inner/biggest wave, 3 = outer/smallest tip)
-    // Tapered distribution matching the acoustic cone:
-    // Band 0 has the highest share (biggest wave), tapering down to Band 3 (smallest wave)
     const rBand = rng();
     let b = 0;
     if (rBand < 0.40) b = 0;      // 40% in innermost wave (biggest, thickest, brightest)
@@ -233,8 +245,14 @@ function buildField(count: number, seed = 20260913): ParticleField {
     const rawU = (rng() - 0.5) * 2;
     const u = rawU * 0.78 + rawU * rawU * rawU * 0.22;
     waveAngle[i] = u * 0.92;
-
     waveRadialOffset[i] = halo ? gaussian(rng) * 24 : gaussian(rng) * 9;
+
+    // Product 2: Continuous sinusoidal undulating ribbon across the screen
+    // t spans from 0 to 1 across the width with organic jitter
+    const tJitter = (rng() - 0.5) * (1.6 / n);
+    waveGreenT[i] = clamp(i / (n - 1) + tJitter, 0, 1);
+    // Core particles cluster along the dense wave curve; halo particles disperse outwards
+    waveGreenCrossOffset[i] = halo ? gaussian(rng) * 34 : gaussian(rng) * 12;
   }
 
   return {
@@ -262,11 +280,14 @@ function buildField(count: number, seed = 20260913): ParticleField {
     waveBand,
     waveAngle,
     waveRadialOffset,
+    waveGreenT,
+    waveGreenCrossOffset,
   };
 }
 
 interface UnifiedParticleFlowProps {
   progress?: number;
+  productIndex?: number;
   logoScale?: number;
   particleScale?: number;
   heroParticleScale?: number;
@@ -277,6 +298,7 @@ interface UnifiedParticleFlowProps {
 
 export default function UnifiedParticleFlow({
   progress = 0,
+  productIndex = 0,
   logoScale = 1.0,
   particleScale = 2.5,
   heroParticleScale = 1.0,
@@ -291,6 +313,9 @@ export default function UnifiedParticleFlow({
   // Keep references to dynamic values without tearing down WebGL/Canvas state
   const progressRef = useRef(progress);
   progressRef.current = progress;
+
+  const productIndexRef = useRef(productIndex);
+  productIndexRef.current = productIndex;
 
   const logoScaleRef = useRef(logoScale);
   logoScaleRef.current = logoScale;
@@ -315,9 +340,10 @@ export default function UnifiedParticleFlow({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Pre-bake Hero and About sprites
+    // Pre-bake Hero, About, and Product 2 (Green) sprites
     const heroSprites = HERO_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
     const aboutSprites = ABOUT_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
+    const greenSprites = GREEN_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
 
     let width = 0;
     let height = 0;
@@ -359,6 +385,7 @@ export default function UnifiedParticleFlow({
           waveDensityRef.current,
           width,
           height,
+          productIndexRef.current,
         );
         for (let i = 0; i < field.n; i++) {
           field.x[i] = field.hx[i];
@@ -373,6 +400,7 @@ export default function UnifiedParticleFlow({
     let lastLScale = -1;
     let lastArcLen = -1;
     let lastDensity = -1;
+    let lastProdIdx = -1;
 
     const updateTargetHomes = (
       f: ParticleField,
@@ -383,6 +411,7 @@ export default function UnifiedParticleFlow({
       density: number,
       w: number,
       h: number,
+      prodIdx: number,
     ) => {
       const vb = AV_LOGO.viewBox;
       const vbCx = vb.x + vb.width * 0.5;
@@ -449,39 +478,74 @@ export default function UnifiedParticleFlow({
         const isTransitioning2 = p23 > 0.001 && p23 < 0.999;
         const flowMagnitude2 = isTransitioning2 ? Math.sin(p23 * Math.PI) * (isDesktop ? 68 : 38) : 0;
 
-        for (let i = 0; i < f.n; i++) {
-          const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
-          const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
+        if (prodIdx === 1) {
+          // Product 2: Sinusoidal Undulating Emerald Sound Wave traversing across behind the speaker
+          const waveFreq = 2.4 * Math.PI * 2;
+          const waveAmp = isDesktop ? Math.min(h * 0.17, 115) : Math.min(h * 0.13, 68);
 
-          const b = f.waveBand[i];
-          const side = f.waveSide[i];
-          const curR = baseR0 + b * bandStep;
+          for (let i = 0; i < f.n; i++) {
+            const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
+            const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
 
-          // Tapered Wave Pattern: biggest wave closest to speaker, smallest wave furthest away
-          // Angular arc span is scaled so physical arc height tapers:
-          // Band 0 (100% height) -> Band 1 (74% height) -> Band 2 (50% height) -> Band 3 (30% height)
+            const tNorm = f.waveGreenT[i];
+            const waveX = (tNorm * 1.14 - 0.07) * w;
+            const baseWaveY = speakerCy + Math.sin(tNorm * waveFreq + 0.35) * waveAmp;
+
+            // Perpendicular tangent & normal dispersion
+            const dYdX = Math.cos(tNorm * waveFreq + 0.35) * waveAmp * (waveFreq / (1.14 * w));
+            const normLen = Math.hypot(-dYdX, 1) || 1;
+            const nx = -dYdX / normLen;
+            const ny = 1 / normLen;
+
+            const cross = f.waveGreenCrossOffset[i] / Math.max(0.2, density);
+            const targetWaveX = waveX + nx * cross;
+            const targetWaveY = baseWaveY + ny * cross;
+
+            if (isTransitioning2) {
+              const theta2 = i * 0.143 + p23 * 4.9;
+              const pushWeight = f.push[i] * 0.7 + 0.3;
+              const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
+              const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
+              f.hx[i] = aboutX + (targetWaveX - aboutX) * easedP23 + streamX2;
+              f.hy[i] = aboutY + (targetWaveY - aboutY) * easedP23 + streamY2;
+            } else {
+              f.hx[i] = aboutX + (targetWaveX - aboutX) * easedP23;
+              f.hy[i] = aboutY + (targetWaveY - aboutY) * easedP23;
+            }
+          }
+        } else {
+          // Product 1: Tapered Concentric Acoustic Sound Wave Arcs framing the speaker
           const taperRatios = [1.0, 0.74, 0.50, 0.30];
-          const bandAngleScale = (baseR0 / curR) * taperRatios[b];
-          const angle = f.waveAngle[i] * arcLen * bandAngleScale;
 
-          // Band thickness also tapers: Band 0 is a rich, thick diamond band, Band 3 is a crisp, single-file curve
-          const radialOffsetMult = [1.25, 1.0, 0.75, 0.50][b];
-          const radialOffset = (f.waveRadialOffset[i] / Math.max(0.1, density)) * radialOffsetMult;
-          const r = curR + radialOffset;
+          for (let i = 0; i < f.n; i++) {
+            const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
+            const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
 
-          const waveX = speakerCx + side * (r * Math.cos(angle));
-          const waveY = speakerCy + r * Math.sin(angle);
+            const b = f.waveBand[i];
+            const side = f.waveSide[i];
+            const curR = baseR0 + b * bandStep;
 
-          if (isTransitioning2) {
-            const theta2 = i * 0.143 + p23 * 4.9;
-            const pushWeight = f.push[i] * 0.7 + 0.3;
-            const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
-            const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
-            f.hx[i] = aboutX + (waveX - aboutX) * easedP23 + streamX2;
-            f.hy[i] = aboutY + (waveY - aboutY) * easedP23 + streamY2;
-          } else {
-            f.hx[i] = aboutX + (waveX - aboutX) * easedP23;
-            f.hy[i] = aboutY + (waveY - aboutY) * easedP23;
+            const bandAngleScale = (baseR0 / curR) * taperRatios[b];
+            const angle = f.waveAngle[i] * arcLen * bandAngleScale;
+
+            const radialOffsetMult = [1.25, 1.0, 0.75, 0.50][b];
+            const radialOffset = (f.waveRadialOffset[i] / Math.max(0.1, density)) * radialOffsetMult;
+            const r = curR + radialOffset;
+
+            const waveX = speakerCx + side * (r * Math.cos(angle));
+            const waveY = speakerCy + r * Math.sin(angle);
+
+            if (isTransitioning2) {
+              const theta2 = i * 0.143 + p23 * 4.9;
+              const pushWeight = f.push[i] * 0.7 + 0.3;
+              const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
+              const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
+              f.hx[i] = aboutX + (waveX - aboutX) * easedP23 + streamX2;
+              f.hy[i] = aboutY + (waveY - aboutY) * easedP23 + streamY2;
+            } else {
+              f.hx[i] = aboutX + (waveX - aboutX) * easedP23;
+              f.hy[i] = aboutY + (waveY - aboutY) * easedP23;
+            }
           }
         }
       }
@@ -497,24 +561,37 @@ export default function UnifiedParticleFlow({
       const pScale = particleScaleRef.current;
       const arcLen = waveArcLengthRef.current;
       const density = waveDensityRef.current;
+      const prodIdx = productIndexRef.current;
       const n = field.n;
 
-      // Only recompute target coordinates when position or dimensions change
+      // Recompute target coordinates when position, product, or dimensions change
       if (
         p !== lastP ||
         width !== lastW ||
         height !== lastH ||
         lScale !== lastLScale ||
         arcLen !== lastArcLen ||
-        density !== lastDensity
+        density !== lastDensity ||
+        prodIdx !== lastProdIdx
       ) {
-        updateTargetHomes(field, p, lScale, pScale, arcLen, density, width, height);
+        if (lastProdIdx !== -1 && prodIdx !== lastProdIdx) {
+          // Dynamic impulse ripple when switching products on Screen 3
+          for (let i = 0; i < n; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const spd = 28 + Math.random() * 45;
+            field.velX[i] += Math.cos(ang) * spd;
+            field.velY[i] += Math.sin(ang) * spd;
+          }
+        }
+
+        updateTargetHomes(field, p, lScale, pScale, arcLen, density, width, height, prodIdx);
         lastP = p;
         lastW = width;
         lastH = height;
         lastLScale = lScale;
         lastArcLen = arcLen;
         lastDensity = density;
+        lastProdIdx = prodIdx;
       }
 
       const vb = AV_LOGO.viewBox;
@@ -541,15 +618,22 @@ export default function UnifiedParticleFlow({
         // Screen 3 Harmonic Sound Wave Acoustic Pulse
         if (p > 0.7) {
           const soundInfluence = clamp((p - 0.7) / 0.3, 0, 1);
-          const b = field.waveBand[i];
-          const side = field.waveSide[i];
-          const curR = baseR0 + b * bandStep;
-          const bandAngleScale = (baseR0 / curR) * taperRatios[b];
-          const angle = field.waveAngle[i] * arcLen * bandAngleScale;
-          // Wave pulse propagating outward:
-          const pulse = Math.sin(totalTime * 3.4 - b * 0.95) * 5.0 * soundInfluence;
-          targetX += side * Math.cos(angle) * pulse;
-          targetY += Math.sin(angle) * pulse;
+          if (prodIdx === 1) {
+            // Product 2: Sinusoidal traveling shimmer wave
+            const tNorm = field.waveGreenT[i];
+            const wavePulse = Math.sin(totalTime * 3.4 - tNorm * 10.0) * 5.5 * soundInfluence;
+            targetY += wavePulse;
+          } else {
+            // Product 1: Concentric acoustic arc pulse
+            const b = field.waveBand[i];
+            const side = field.waveSide[i];
+            const curR = baseR0 + b * bandStep;
+            const bandAngleScale = (baseR0 / curR) * taperRatios[b];
+            const angle = field.waveAngle[i] * arcLen * bandAngleScale;
+            const pulse = Math.sin(totalTime * 3.4 - b * 0.95) * 5.0 * soundInfluence;
+            targetX += side * Math.cos(angle) * pulse;
+            targetY += Math.sin(angle) * pulse;
+          }
         }
 
         const diffX = targetX - field.x[i];
@@ -594,6 +678,7 @@ export default function UnifiedParticleFlow({
       const p = clamp(progressRef.current, 0, 2);
       const pScale = particleScaleRef.current;
       const heroPScale = heroParticleScaleRef.current;
+      const prodIdx = productIndexRef.current;
 
       for (let t = 0; t < HERO_TIERS.length; t++) {
         const start = field.tierStart[t];
@@ -615,15 +700,24 @@ export default function UnifiedParticleFlow({
           const p23 = p - 1.0;
           const easedP23 = easeInOutCubic(p23);
           currentSize = aboutSize + (waveSize - aboutSize) * easedP23;
-          sprite = aboutSprites[t];
+          if (prodIdx === 1) {
+            sprite = easedP23 > 0.35 ? greenSprites[t] : aboutSprites[t];
+          } else {
+            sprite = aboutSprites[t];
+          }
         }
 
         for (let i = start; i < start + len; i++) {
           let size = currentSize;
           if (p > 1.0) {
-            const b = field.waveBand[i];
-            const bandSizeMult = [1.22, 1.04, 0.90, 0.78][b];
-            size = currentSize * bandSizeMult;
+            if (prodIdx === 1) {
+              const tierSizeMult = [1.25, 1.15, 1.0, 0.85, 0.75][t];
+              size = currentSize * tierSizeMult;
+            } else {
+              const b = field.waveBand[i];
+              const bandSizeMult = [1.22, 1.04, 0.90, 0.78][b];
+              size = currentSize * bandSizeMult;
+            }
           }
           const half = size * 0.5;
           ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, size, size);
