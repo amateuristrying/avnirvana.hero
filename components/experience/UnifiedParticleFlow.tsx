@@ -218,13 +218,15 @@ function buildField(count: number, seed = 20260913): ParticleField {
     // Symmetrical 50/50 distribution: left (-1) vs right (+1) sound waves
     waveSide[i] = i % 2 === 0 ? -1 : 1;
 
-    // 4 concentric bands (0 = inner, 3 = outer)
+    // 4 concentric bands (0 = inner/biggest wave, 3 = outer/smallest tip)
+    // Tapered distribution matching the acoustic cone:
+    // Band 0 has the highest share (biggest wave), tapering down to Band 3 (smallest wave)
     const rBand = rng();
     let b = 0;
-    if (rBand < 0.18) b = 0;
-    else if (rBand < 0.42) b = 1;
-    else if (rBand < 0.70) b = 2;
-    else b = 3;
+    if (rBand < 0.40) b = 0;      // 40% in innermost wave (biggest, thickest, brightest)
+    else if (rBand < 0.68) b = 1; // 28% in second wave
+    else if (rBand < 0.88) b = 2; // 20% in third wave
+    else b = 3;                   // 12% in outermost wave (smallest tip)
     waveBand[i] = b;
 
     // Angular distribution across +-52 deg, concentrated towards equator
@@ -268,6 +270,8 @@ interface UnifiedParticleFlowProps {
   logoScale?: number;
   particleScale?: number;
   heroParticleScale?: number;
+  waveArcLength?: number;
+  waveDensity?: number;
   className?: string;
 }
 
@@ -276,6 +280,8 @@ export default function UnifiedParticleFlow({
   logoScale = 1.0,
   particleScale = 2.5,
   heroParticleScale = 1.0,
+  waveArcLength = 0.85,
+  waveDensity = 0.8,
   className = "",
 }: UnifiedParticleFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -294,6 +300,12 @@ export default function UnifiedParticleFlow({
 
   const heroParticleScaleRef = useRef(heroParticleScale);
   heroParticleScaleRef.current = heroParticleScale;
+
+  const waveArcLengthRef = useRef(waveArcLength);
+  waveArcLengthRef.current = waveArcLength;
+
+  const waveDensityRef = useRef(waveDensity);
+  waveDensityRef.current = waveDensity;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -338,7 +350,16 @@ export default function UnifiedParticleFlow({
         field = buildField(clampedCount);
 
         // Initial positions at Hero home
-        updateTargetHomes(field, 0, 1.0, 1.0, width, height);
+        updateTargetHomes(
+          field,
+          0,
+          1.0,
+          1.0,
+          waveArcLengthRef.current,
+          waveDensityRef.current,
+          width,
+          height,
+        );
         for (let i = 0; i < field.n; i++) {
           field.x[i] = field.hx[i];
           field.y[i] = field.hy[i];
@@ -350,12 +371,16 @@ export default function UnifiedParticleFlow({
     let lastW = -1;
     let lastH = -1;
     let lastLScale = -1;
+    let lastArcLen = -1;
+    let lastDensity = -1;
 
     const updateTargetHomes = (
       f: ParticleField,
       p: number,
       lScale: number,
       pScale: number,
+      arcLen: number,
+      density: number,
       w: number,
       h: number,
     ) => {
@@ -430,8 +455,19 @@ export default function UnifiedParticleFlow({
 
           const b = f.waveBand[i];
           const side = f.waveSide[i];
-          const angle = f.waveAngle[i];
-          const r = baseR0 + b * bandStep + f.waveRadialOffset[i];
+          const curR = baseR0 + b * bandStep;
+
+          // Tapered Wave Pattern: biggest wave closest to speaker, smallest wave furthest away
+          // Angular arc span is scaled so physical arc height tapers:
+          // Band 0 (100% height) -> Band 1 (74% height) -> Band 2 (50% height) -> Band 3 (30% height)
+          const taperRatios = [1.0, 0.74, 0.50, 0.30];
+          const bandAngleScale = (baseR0 / curR) * taperRatios[b];
+          const angle = f.waveAngle[i] * arcLen * bandAngleScale;
+
+          // Band thickness also tapers: Band 0 is a rich, thick diamond band, Band 3 is a crisp, single-file curve
+          const radialOffsetMult = [1.25, 1.0, 0.75, 0.50][b];
+          const radialOffset = (f.waveRadialOffset[i] / Math.max(0.1, density)) * radialOffsetMult;
+          const r = curR + radialOffset;
 
           const waveX = speakerCx + side * (r * Math.cos(angle));
           const waveY = speakerCy + r * Math.sin(angle);
@@ -459,15 +495,26 @@ export default function UnifiedParticleFlow({
       const p = progressRef.current;
       const lScale = logoScaleRef.current;
       const pScale = particleScaleRef.current;
+      const arcLen = waveArcLengthRef.current;
+      const density = waveDensityRef.current;
       const n = field.n;
 
       // Only recompute target coordinates when position or dimensions change
-      if (p !== lastP || width !== lastW || height !== lastH || lScale !== lastLScale) {
-        updateTargetHomes(field, p, lScale, pScale, width, height);
+      if (
+        p !== lastP ||
+        width !== lastW ||
+        height !== lastH ||
+        lScale !== lastLScale ||
+        arcLen !== lastArcLen ||
+        density !== lastDensity
+      ) {
+        updateTargetHomes(field, p, lScale, pScale, arcLen, density, width, height);
         lastP = p;
         lastW = width;
         lastH = height;
         lastLScale = lScale;
+        lastArcLen = arcLen;
+        lastDensity = density;
       }
 
       const vb = AV_LOGO.viewBox;
@@ -477,6 +524,10 @@ export default function UnifiedParticleFlow({
       const rReach = markWidth * REPEL_RADIUS;
       const rReachSq = rReach * rReach;
       const repelAcc = markWidth * REPEL_STRENGTH;
+
+      const baseR0 = isDesktop ? Math.min(width * 0.165, 245) : Math.min(width * 0.28, 130);
+      const bandStep = isDesktop ? Math.min(width * 0.070, 105) : Math.min(width * 0.12, 55);
+      const taperRatios = [1.0, 0.74, 0.50, 0.30];
 
       // Mouse repulsion
       const inside = pointer.active;
@@ -492,7 +543,9 @@ export default function UnifiedParticleFlow({
           const soundInfluence = clamp((p - 0.7) / 0.3, 0, 1);
           const b = field.waveBand[i];
           const side = field.waveSide[i];
-          const angle = field.waveAngle[i];
+          const curR = baseR0 + b * bandStep;
+          const bandAngleScale = (baseR0 / curR) * taperRatios[b];
+          const angle = field.waveAngle[i] * arcLen * bandAngleScale;
           // Wave pulse propagating outward:
           const pulse = Math.sin(totalTime * 3.4 - b * 0.95) * 5.0 * soundInfluence;
           targetX += side * Math.cos(angle) * pulse;
@@ -548,7 +601,8 @@ export default function UnifiedParticleFlow({
 
         const heroSize = HERO_TIERS[t].size * SPRITE_OVERDRAW * heroPScale;
         const aboutSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * pScale;
-        const waveSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * (pScale * 0.85);
+        const density = waveDensityRef.current;
+        const waveSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * (pScale * (0.80 + 0.10 * Math.min(density, 2.5)));
 
         let currentSize = 0;
         let sprite = aboutSprites[t];
@@ -564,10 +618,15 @@ export default function UnifiedParticleFlow({
           sprite = aboutSprites[t];
         }
 
-        const half = currentSize * 0.5;
-
         for (let i = start; i < start + len; i++) {
-          ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, currentSize, currentSize);
+          let size = currentSize;
+          if (p > 1.0) {
+            const b = field.waveBand[i];
+            const bandSizeMult = [1.22, 1.04, 0.90, 0.78][b];
+            size = currentSize * bandSizeMult;
+          }
+          const half = size * 0.5;
+          ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, size, size);
         }
       }
     };

@@ -13,6 +13,8 @@ import UnifiedParticleFlow from "./UnifiedParticleFlow";
 const SCREEN2_LOGO_SCALE = 1.34;
 const SCREEN2_PARTICLE_SCALE = 1.66;
 const HERO_PARTICLE_SCALE = 1.9;
+const SCREEN3_WAVE_ARC_LENGTH = 0.85;
+const SCREEN3_WAVE_DENSITY = 0.8;
 
 export default function HeroAboutExperience() {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -25,6 +27,7 @@ export default function HeroAboutExperience() {
   const heroContentRef = useRef<HTMLDivElement>(null);
   const aboutContentRef = useRef<HTMLDivElement>(null);
   const speakerContentRef = useRef<HTMLDivElement>(null);
+  const speakerShakeRef = useRef<HTMLDivElement>(null);
   const particleCanvasWrapRef = useRef<HTMLDivElement>(null);
 
   // About Screen Text Block refs for sequential GSAP animation
@@ -45,6 +48,108 @@ export default function HeroAboutExperience() {
 
   // Realtime scroll progress passed to the unified canvas (0.0 to 2.0)
   const [scrollProgress, setScrollProgress] = useState(0);
+
+  // Rate-limiting for tactile speaker shake and device vibration
+  const lastShakeTime = useRef(0);
+
+  const triggerVibrateAndShake = useCallback(() => {
+    const now = Date.now();
+    if (now - lastShakeTime.current < 110) return;
+    lastShakeTime.current = now;
+
+    // 1. Mobile Physical Vibration API (Haptic Feedback)
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate([45, 30, 60, 25, 50]);
+      } catch {
+        // unsupported or unpermitted
+      }
+    }
+
+    // 2. Gamepad Rumble API (for laptops/PCs with game controller connected)
+    if (typeof navigator !== "undefined" && "getGamepads" in navigator) {
+      try {
+        const gamepads = navigator.getGamepads();
+        for (const gp of gamepads) {
+          if (gp && gp.vibrationActuator && typeof gp.vibrationActuator.playEffect === "function") {
+            gp.vibrationActuator.playEffect("dual-rumble", {
+              startDelay: 0,
+              duration: 180,
+              weakMagnitude: 0.8,
+              strongMagnitude: 1.0,
+            });
+          }
+        }
+      } catch {
+        // ignored
+      }
+    }
+
+    // 3. Central Speaker Physical Acoustic Shake
+    const speakerEl = speakerShakeRef.current;
+    if (speakerEl) {
+      gsap.killTweensOf(speakerEl);
+      const shakeTl = gsap.timeline();
+      shakeTl
+        .to(speakerEl, {
+          x: () => (Math.random() - 0.5) * 15,
+          y: () => (Math.random() - 0.5) * 11,
+          rotation: () => (Math.random() - 0.5) * 3.4,
+          scale: 1.045,
+          duration: 0.045,
+          ease: "power2.out",
+        })
+        .to(speakerEl, {
+          x: () => (Math.random() - 0.5) * 11,
+          y: () => (Math.random() - 0.5) * 9,
+          rotation: () => (Math.random() - 0.5) * -2.6,
+          scale: 0.98,
+          duration: 0.045,
+          ease: "power1.inOut",
+        })
+        .to(speakerEl, {
+          x: () => (Math.random() - 0.5) * 6,
+          y: () => (Math.random() - 0.5) * 5,
+          rotation: () => (Math.random() - 0.5) * 1.5,
+          scale: 1.015,
+          duration: 0.05,
+          ease: "power1.inOut",
+        })
+        .to(speakerEl, {
+          x: 0,
+          y: 0,
+          rotation: 0,
+          scale: 1.0,
+          duration: 0.22,
+          ease: "elastic.out(1.1, 0.35)",
+        });
+    }
+
+    // 4. Laptop Screen / Viewport Bass Rumble Shake
+    const vp = viewportRef.current;
+    if (vp) {
+      gsap.killTweensOf(vp);
+      gsap.timeline()
+        .to(vp, {
+          x: () => (Math.random() - 0.5) * 4.5,
+          y: () => (Math.random() - 0.5) * 4.5,
+          duration: 0.04,
+          ease: "power1.inOut",
+        })
+        .to(vp, {
+          x: () => (Math.random() - 0.5) * 2.5,
+          y: () => (Math.random() - 0.5) * 2.5,
+          duration: 0.04,
+          ease: "power1.inOut",
+        })
+        .to(vp, {
+          x: 0,
+          y: 0,
+          duration: 0.12,
+          ease: "power2.out",
+        });
+    }
+  }, []);
 
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
@@ -275,12 +380,21 @@ export default function HeroAboutExperience() {
     // Hijack mouse wheel: any scroll triggers full instant transition between screens
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (animatingRef.current) return;
       if (Math.abs(e.deltaY) < 3) return;
+
+      // On Screen 3, any scroll shakes the speaker and triggers device vibration
+      if (currentScreenRef.current === 2) {
+        triggerVibrateAndShake();
+      }
+
+      if (animatingRef.current) return;
 
       if (e.deltaY > 0) {
         if (currentScreenRef.current === 0) goToScreen(1);
-        else if (currentScreenRef.current === 1) goToScreen(2);
+        else if (currentScreenRef.current === 1) {
+          goToScreen(2);
+          setTimeout(triggerVibrateAndShake, 520);
+        }
       } else if (e.deltaY < 0) {
         if (currentScreenRef.current === 2) goToScreen(1);
         else if (currentScreenRef.current === 1) goToScreen(0);
@@ -299,12 +413,18 @@ export default function HeroAboutExperience() {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      if (currentScreenRef.current === 2) {
+        triggerVibrateAndShake();
+      }
       if (e.cancelable) {
         e.preventDefault();
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
+      if (currentScreenRef.current === 2) {
+        triggerVibrateAndShake();
+      }
       if (animatingRef.current || e.changedTouches.length === 0) return;
       const touchEndY = e.changedTouches[0].clientY;
       const touchEndX = e.changedTouches[0].clientX;
@@ -314,7 +434,10 @@ export default function HeroAboutExperience() {
       if (Math.abs(diffY) > 25 && Math.abs(diffY) > Math.abs(diffX)) {
         if (diffY > 0) {
           if (currentScreenRef.current === 0) goToScreen(1);
-          else if (currentScreenRef.current === 1) goToScreen(2);
+          else if (currentScreenRef.current === 1) {
+            goToScreen(2);
+            setTimeout(triggerVibrateAndShake, 520);
+          }
         } else if (diffY < 0) {
           if (currentScreenRef.current === 2) goToScreen(1);
           else if (currentScreenRef.current === 1) goToScreen(0);
@@ -324,6 +447,9 @@ export default function HeroAboutExperience() {
 
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (currentScreenRef.current === 2 && ["ArrowDown", "PageDown", " ", "ArrowUp"].includes(e.key)) {
+        triggerVibrateAndShake();
+      }
       if (animatingRef.current) return;
       if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
         if (currentScreenRef.current === 0) {
@@ -332,6 +458,7 @@ export default function HeroAboutExperience() {
         } else if (currentScreenRef.current === 1) {
           e.preventDefault();
           goToScreen(2);
+          setTimeout(triggerVibrateAndShake, 520);
         }
       } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
         if (currentScreenRef.current === 2) {
@@ -405,6 +532,8 @@ export default function HeroAboutExperience() {
             logoScale={SCREEN2_LOGO_SCALE}
             particleScale={SCREEN2_PARTICLE_SCALE}
             heroParticleScale={HERO_PARTICLE_SCALE}
+            waveArcLength={SCREEN3_WAVE_ARC_LENGTH}
+            waveDensity={SCREEN3_WAVE_DENSITY}
           />
         </div>
 
@@ -574,12 +703,19 @@ export default function HeroAboutExperience() {
                 transform: "scale(1.2)",
               }}
             >
-              <img
-                src="/speaker.png"
-                alt="AIR-C8 Passive Installation Speaker"
-                className="h-[42vh] max-h-[440px] min-h-[250px] w-auto max-w-[78vw] object-contain drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_50px_rgba(138,182,255,0.20)] select-none pointer-events-none"
-                draggable={false}
-              />
+              <div
+                ref={speakerShakeRef}
+                className="cursor-pointer will-change-transform pointer-events-auto transition-transform duration-75 active:scale-95"
+                onClick={triggerVibrateAndShake}
+                title="Click or scroll to feel acoustic rumble"
+              >
+                <img
+                  src="/speaker.png"
+                  alt="AIR-C8 Passive Installation Speaker"
+                  className="h-[42vh] max-h-[440px] min-h-[250px] w-auto max-w-[78vw] object-contain drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] drop-shadow-[0_0_50px_rgba(138,182,255,0.20)] select-none pointer-events-none"
+                  draggable={false}
+                />
+              </div>
             </div>
           </div>
 
