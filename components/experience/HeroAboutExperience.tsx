@@ -43,8 +43,8 @@ export default function HeroAboutExperience() {
   // Realtime scroll progress passed to the unified canvas (0.0 to 1.0)
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  // Top header Y-axis slider offset
-  const [headerYOffset, setHeaderYOffset] = useState(0);
+  // Screen 1 Hero Particle Size scale slider
+  const [heroParticleScale, setHeroParticleScale] = useState(2.0);
 
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
@@ -346,6 +346,7 @@ export default function HeroAboutExperience() {
           progress={scrollProgress}
           logoScale={LOGO_SCALE}
           particleScale={PARTICLE_SCALE}
+          heroParticleScale={heroParticleScale}
         />
 
         {/* ============================================================ */}
@@ -381,11 +382,10 @@ export default function HeroAboutExperience() {
           className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-center px-4 opacity-0 sm:px-6 lg:px-8 py-10"
         >
           <div className="mx-auto w-full max-w-[1400px]">
-            {/* Top Center: Compact Hierarchy Header (Controlled by Y-Axis Slider) */}
+            {/* Top Center: Compact Hierarchy Header (Offset set to -52px) */}
             <div
               style={{
-                transform: `translateY(${headerYOffset}px)`,
-                transition: "transform 0.05s ease-out",
+                transform: "translateY(-52px)",
               }}
               className="will-change-transform"
             >
@@ -472,11 +472,11 @@ export default function HeroAboutExperience() {
         </div>
 
         {/* ============================================================ */}
-        {/* FLOATING HEADER Y-AXIS CONTROL SLIDER                        */}
+        {/* FLOATING HERO PARTICLE SIZE SLIDER (SCREEN 1)                */}
         {/* ============================================================ */}
         <div
           className={`fixed bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-2 transition-all duration-300 ${
-            scrollProgress > 0.2 || currentScreen === 1
+            scrollProgress < 0.2 && currentScreen === 0
               ? "opacity-100 translate-y-0"
               : "opacity-0 pointer-events-none translate-y-4"
           }`}
@@ -484,29 +484,29 @@ export default function HeroAboutExperience() {
           <div className="flex flex-col gap-2.5 rounded-2xl border border-white/20 bg-[#0c1222]/92 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-md">
             <div className="flex items-center justify-between gap-4">
               <span className="text-[11px] font-semibold tracking-wider text-fg-mute uppercase">
-                Header Y-Axis Slider
+                Screen 1 Particle Size
               </span>
               <span className="font-mono text-[13px] font-bold text-[#8AB6FF]">
-                {headerYOffset > 0 ? `+${headerYOffset}` : headerYOffset}px
+                {heroParticleScale.toFixed(2)}x
               </span>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-mono text-fg-mute/70">-200px</span>
+              <span className="text-[10px] font-mono text-fg-mute/70">0.5x</span>
               <input
                 type="range"
-                min="-200"
-                max="200"
-                step="1"
-                value={headerYOffset}
-                onChange={(e) => setHeaderYOffset(Number(e.target.value))}
+                min="0.5"
+                max="4.0"
+                step="0.05"
+                value={heroParticleScale}
+                onChange={(e) => setHeroParticleScale(Number(e.target.value))}
                 className="h-1.5 w-44 sm:w-56 cursor-pointer appearance-none rounded-lg bg-white/20 accent-[#8AB6FF]"
               />
-              <span className="text-[10px] font-mono text-fg-mute/70">+200px</span>
+              <span className="text-[10px] font-mono text-fg-mute/70">4.0x</span>
 
               <button
                 type="button"
-                onClick={() => setHeaderYOffset(0)}
+                onClick={() => setHeroParticleScale(1.0)}
                 className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-fg hover:bg-white/20 transition active:scale-95"
               >
                 Reset
@@ -517,18 +517,18 @@ export default function HeroAboutExperience() {
             <div className="flex items-center justify-between pt-1">
               <span className="text-[9.5px] uppercase tracking-wider text-fg-mute/60">Presets:</span>
               <div className="flex items-center gap-1.5">
-                {[-80, -40, -20, 0, 20, 40, 80].map((val) => (
+                {[1.0, 1.5, 2.0, 2.5, 3.0].map((val) => (
                   <button
                     key={val}
                     type="button"
-                    onClick={() => setHeaderYOffset(val)}
+                    onClick={() => setHeroParticleScale(val)}
                     className={`rounded px-1.5 py-0.5 text-[9.5px] font-mono transition ${
-                      headerYOffset === val
+                      Math.abs(heroParticleScale - val) < 0.01
                         ? "bg-[#8AB6FF] text-[#0c1222] font-bold shadow-[0_0_10px_rgba(138,182,255,0.5)]"
                         : "bg-white/5 text-fg-mute hover:bg-white/15"
                     }`}
                   >
-                    {val > 0 ? `+${val}` : val}
+                    {val.toFixed(1)}x
                   </button>
                 ))}
               </div>

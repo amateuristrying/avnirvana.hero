@@ -29,13 +29,13 @@ const HERO_TIERS = [
   { rgb: "160,148,200", alpha: 0.22, size: 0.94 },
 ];
 
-// About Color Tiers (Cool Electric Blue & Soft White)
+// About Color Tiers (Pure White & Neutral Greys — No Blues)
 const ABOUT_TIERS = [
-  { rgb: "246,250,255", alpha: 0.98, size: 1.55 },
-  { rgb: "214,230,255", alpha: 0.88, size: 1.38 },
-  { rgb: "138,182,255", alpha: 0.80, size: 1.24 },
-  { rgb: "58,134,255", alpha: 0.65, size: 1.10 },
-  { rgb: "28,74,170", alpha: 0.35, size: 0.95 },
+  { rgb: "255,255,255", alpha: 0.98, size: 1.55 }, // Pure Brilliant White
+  { rgb: "240,242,246", alpha: 0.88, size: 1.38 }, // Soft White
+  { rgb: "205,210,220", alpha: 0.78, size: 1.24 }, // Pale Silver Grey
+  { rgb: "155,160,172", alpha: 0.62, size: 1.10 }, // Medium Mist Grey
+  { rgb: "110,115,128", alpha: 0.40, size: 0.95 }, // Deep Slate Grey
 ];
 
 const CORE_TIER_WEIGHTS = [0.32, 0.30, 0.24, 0.11, 0.03];
@@ -233,6 +233,7 @@ interface UnifiedParticleFlowProps {
   progress?: number;
   logoScale?: number;
   particleScale?: number;
+  heroParticleScale?: number;
   className?: string;
 }
 
@@ -240,6 +241,7 @@ export default function UnifiedParticleFlow({
   progress = 0,
   logoScale = 1.0,
   particleScale = 2.5,
+  heroParticleScale = 1.0,
   className = "",
 }: UnifiedParticleFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -255,6 +257,9 @@ export default function UnifiedParticleFlow({
 
   const particleScaleRef = useRef(particleScale);
   particleScaleRef.current = particleScale;
+
+  const heroParticleScaleRef = useRef(heroParticleScale);
+  heroParticleScaleRef.current = heroParticleScale;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -448,6 +453,7 @@ export default function UnifiedParticleFlow({
 
       const p = clamp(progressRef.current, 0, 1);
       const pScale = particleScaleRef.current;
+      const heroPScale = heroParticleScaleRef.current;
       const easedP = easeInOutCubic(p);
 
       for (let t = 0; t < HERO_TIERS.length; t++) {
@@ -455,8 +461,8 @@ export default function UnifiedParticleFlow({
         const start = field.tierStart[t];
         const len = field.tierLen[t];
 
-        // Base size scaled up by particleScale as we move into the second screen
-        const heroSize = HERO_TIERS[t].size * SPRITE_OVERDRAW;
+        // Base size scaled up by heroPScale on Screen 1 and pScale on Screen 2
+        const heroSize = HERO_TIERS[t].size * SPRITE_OVERDRAW * heroPScale;
         const aboutSize = ABOUT_TIERS[t].size * SPRITE_OVERDRAW * pScale;
         const currentSize = heroSize + (aboutSize - heroSize) * easedP;
         const half = currentSize * 0.5;
