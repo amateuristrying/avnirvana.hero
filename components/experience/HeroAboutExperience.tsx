@@ -151,9 +151,105 @@ export default function HeroAboutExperience() {
     }
   }, []);
 
+  // Screen 3 sequential spec points refs
+  const spec1Ref = useRef<HTMLDivElement>(null);
+  const spec2Ref = useRef<HTMLDivElement>(null);
+  const spec3Ref = useRef<HTMLDivElement>(null);
+  const spec4Ref = useRef<HTMLDivElement>(null);
+  const specCtaRef = useRef<HTMLDivElement>(null);
+
+  const [revealedSpecs, setRevealedSpecs] = useState(0);
+  const revealedSpecsRef = useRef(0);
+  const lastScrollStepTime = useRef(0);
+
+  const animateSpecItem = useCallback((index: number, show: boolean) => {
+    const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current];
+    const el = specEls[index];
+    if (!el) return;
+    gsap.killTweensOf(el);
+    if (show) {
+      gsap.fromTo(
+        el,
+        {
+          opacity: 0,
+          y: 28,
+          scale: 0.94,
+        },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.48,
+          ease: "back.out(1.5)",
+          pointerEvents: "auto",
+        }
+      );
+    } else {
+      gsap.to(el, {
+        opacity: 0,
+        y: 20,
+        scale: 0.95,
+        duration: 0.28,
+        ease: "power2.in",
+        pointerEvents: "none",
+      });
+    }
+  }, []);
+
+  const handleSpeakerClick = useCallback(() => {
+    triggerVibrateAndShake();
+    if (revealedSpecsRef.current < 4) {
+      const nextIndex = revealedSpecsRef.current;
+      revealedSpecsRef.current = nextIndex + 1;
+      setRevealedSpecs(nextIndex + 1);
+      animateSpecItem(nextIndex, true);
+    }
+  }, [triggerVibrateAndShake, animateSpecItem]);
+
+  // Sync CTA visibility when all 4 specs are revealed
+  useEffect(() => {
+    if (!specCtaRef.current) return;
+    gsap.killTweensOf(specCtaRef.current);
+    if (revealedSpecs >= 4) {
+      gsap.fromTo(
+        specCtaRef.current,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.4,
+          delay: 0.15,
+          ease: "power2.out",
+          pointerEvents: "auto",
+        }
+      );
+    } else {
+      gsap.to(specCtaRef.current, {
+        opacity: 0,
+        y: 14,
+        duration: 0.25,
+        ease: "power2.in",
+        pointerEvents: "none",
+      });
+    }
+  }, [revealedSpecs]);
+
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
     animatingRef.current = true;
+
+    // Reset spec items when navigating away from Screen 3
+    if (target < 2) {
+      revealedSpecsRef.current = 0;
+      setRevealedSpecs(0);
+      const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current, specCtaRef.current];
+      specEls.forEach((el) => {
+        if (el) {
+          gsap.killTweensOf(el);
+          gsap.set(el, { opacity: 0, y: 28, scale: 0.94, pointerEvents: "none" });
+        }
+      });
+    }
 
     const diff = Math.abs(target - currentScreenRef.current);
     const animDuration = diff > 1 ? 0.95 : 0.72;
@@ -382,9 +478,42 @@ export default function HeroAboutExperience() {
       e.preventDefault();
       if (Math.abs(e.deltaY) < 3) return;
 
-      // On Screen 3, any scroll shakes the speaker and triggers device vibration
+      // On Screen 3: step through the 4 feature spec points one by one
       if (currentScreenRef.current === 2) {
-        triggerVibrateAndShake();
+        const now = Date.now();
+        if (e.deltaY > 0) {
+          // Scroll down
+          triggerVibrateAndShake();
+          if (revealedSpecsRef.current < 4) {
+            if (now - lastScrollStepTime.current > 240) {
+              lastScrollStepTime.current = now;
+              const nextIndex = revealedSpecsRef.current;
+              revealedSpecsRef.current = nextIndex + 1;
+              setRevealedSpecs(nextIndex + 1);
+              animateSpecItem(nextIndex, true);
+            }
+          }
+          return;
+        } else if (e.deltaY < 0) {
+          // Scroll up
+          if (revealedSpecsRef.current > 0) {
+            triggerVibrateAndShake();
+            if (now - lastScrollStepTime.current > 240) {
+              lastScrollStepTime.current = now;
+              const prevIndex = revealedSpecsRef.current - 1;
+              revealedSpecsRef.current = prevIndex;
+              setRevealedSpecs(prevIndex);
+              animateSpecItem(prevIndex, false);
+            }
+            return;
+          } else {
+            // At 0 points, scroll up returns to Screen 2
+            if (!animatingRef.current) {
+              goToScreen(1);
+            }
+            return;
+          }
+        }
       }
 
       if (animatingRef.current) return;
@@ -396,8 +525,7 @@ export default function HeroAboutExperience() {
           setTimeout(triggerVibrateAndShake, 520);
         }
       } else if (e.deltaY < 0) {
-        if (currentScreenRef.current === 2) goToScreen(1);
-        else if (currentScreenRef.current === 1) goToScreen(0);
+        if (currentScreenRef.current === 1) goToScreen(0);
       }
     };
 
@@ -422,9 +550,6 @@ export default function HeroAboutExperience() {
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (currentScreenRef.current === 2) {
-        triggerVibrateAndShake();
-      }
       if (animatingRef.current || e.changedTouches.length === 0) return;
       const touchEndY = e.changedTouches[0].clientY;
       const touchEndX = e.changedTouches[0].clientX;
@@ -432,6 +557,41 @@ export default function HeroAboutExperience() {
       const diffX = touchStartX - touchEndX;
 
       if (Math.abs(diffY) > 25 && Math.abs(diffY) > Math.abs(diffX)) {
+        if (currentScreenRef.current === 2) {
+          const now = Date.now();
+          if (diffY > 0) {
+            // Swipe up (scroll down)
+            triggerVibrateAndShake();
+            if (revealedSpecsRef.current < 4) {
+              if (now - lastScrollStepTime.current > 200) {
+                lastScrollStepTime.current = now;
+                const nextIndex = revealedSpecsRef.current;
+                revealedSpecsRef.current = nextIndex + 1;
+                setRevealedSpecs(nextIndex + 1);
+                animateSpecItem(nextIndex, true);
+              }
+              return;
+            }
+            return;
+          } else if (diffY < 0) {
+            // Swipe down (scroll up)
+            if (revealedSpecsRef.current > 0) {
+              triggerVibrateAndShake();
+              if (now - lastScrollStepTime.current > 200) {
+                lastScrollStepTime.current = now;
+                const prevIndex = revealedSpecsRef.current - 1;
+                revealedSpecsRef.current = prevIndex;
+                setRevealedSpecs(prevIndex);
+                animateSpecItem(prevIndex, false);
+              }
+              return;
+            } else {
+              goToScreen(1);
+              return;
+            }
+          }
+        }
+
         if (diffY > 0) {
           if (currentScreenRef.current === 0) goToScreen(1);
           else if (currentScreenRef.current === 1) {
@@ -439,17 +599,49 @@ export default function HeroAboutExperience() {
             setTimeout(triggerVibrateAndShake, 520);
           }
         } else if (diffY < 0) {
-          if (currentScreenRef.current === 2) goToScreen(1);
-          else if (currentScreenRef.current === 1) goToScreen(0);
+          if (currentScreenRef.current === 1) goToScreen(0);
         }
       }
     };
 
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (currentScreenRef.current === 2 && ["ArrowDown", "PageDown", " ", "ArrowUp"].includes(e.key)) {
-        triggerVibrateAndShake();
+      if (currentScreenRef.current === 2) {
+        const now = Date.now();
+        if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
+          e.preventDefault();
+          triggerVibrateAndShake();
+          if (revealedSpecsRef.current < 4) {
+            if (now - lastScrollStepTime.current > 200) {
+              lastScrollStepTime.current = now;
+              const nextIndex = revealedSpecsRef.current;
+              revealedSpecsRef.current = nextIndex + 1;
+              setRevealedSpecs(nextIndex + 1);
+              animateSpecItem(nextIndex, true);
+            }
+          }
+          return;
+        } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
+          e.preventDefault();
+          if (revealedSpecsRef.current > 0) {
+            triggerVibrateAndShake();
+            if (now - lastScrollStepTime.current > 200) {
+              lastScrollStepTime.current = now;
+              const prevIndex = revealedSpecsRef.current - 1;
+              revealedSpecsRef.current = prevIndex;
+              setRevealedSpecs(prevIndex);
+              animateSpecItem(prevIndex, false);
+            }
+            return;
+          } else {
+            if (!animatingRef.current) {
+              goToScreen(1);
+            }
+            return;
+          }
+        }
       }
+
       if (animatingRef.current) return;
       if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
         if (currentScreenRef.current === 0) {
@@ -461,10 +653,7 @@ export default function HeroAboutExperience() {
           setTimeout(triggerVibrateAndShake, 520);
         }
       } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
-        if (currentScreenRef.current === 2) {
-          e.preventDefault();
-          goToScreen(1);
-        } else if (currentScreenRef.current === 1) {
+        if (currentScreenRef.current === 1) {
           e.preventDefault();
           goToScreen(0);
         }
@@ -706,8 +895,8 @@ export default function HeroAboutExperience() {
               <div
                 ref={speakerShakeRef}
                 className="cursor-pointer will-change-transform pointer-events-auto transition-transform duration-75 active:scale-95"
-                onClick={triggerVibrateAndShake}
-                title="Click or scroll to feel acoustic rumble"
+                onClick={handleSpeakerClick}
+                title="Click or scroll to reveal features and feel acoustic rumble"
               >
                 <img
                   src="/speaker.png"
@@ -719,11 +908,15 @@ export default function HeroAboutExperience() {
             </div>
           </div>
 
-          {/* Bottom Specifications (4 Columns with clean SVG icons) */}
+          {/* Bottom Specifications (4 Columns with clean SVG icons, revealed one by one on scroll) */}
           <div className="mx-auto w-full max-w-[1360px] pb-1 sm:pb-2">
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-2 sm:gap-x-8 sm:px-4 md:grid-cols-4 lg:gap-x-12">
               {/* Feature 1: Sound */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              <div
+                ref={spec1Ref}
+                className="flex items-center gap-3 sm:gap-4 will-change-transform"
+                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
                   <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                     <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 11v2" />
@@ -740,7 +933,11 @@ export default function HeroAboutExperience() {
               </div>
 
               {/* Feature 2: Versatility */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              <div
+                ref={spec2Ref}
+                className="flex items-center gap-3 sm:gap-4 will-change-transform"
+                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
                   <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -758,7 +955,11 @@ export default function HeroAboutExperience() {
               </div>
 
               {/* Feature 3: Composite Cabinet */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              <div
+                ref={spec3Ref}
+                className="flex items-center gap-3 sm:gap-4 will-change-transform"
+                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
                   <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m2 7 10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5" />
@@ -775,7 +976,11 @@ export default function HeroAboutExperience() {
               </div>
 
               {/* Feature 4: Built to Last */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              <div
+                ref={spec4Ref}
+                className="flex items-center gap-3 sm:gap-4 will-change-transform"
+                style={{ opacity: 0, transform: "translateY(28px) scale(0.94)", pointerEvents: "none" }}
+              >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
                   <svg className="h-6 w-6 sm:h-7 sm:w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -793,7 +998,11 @@ export default function HeroAboutExperience() {
             </div>
 
             {/* Bottom Link CTA */}
-            <div className="mt-4 sm:mt-5 flex flex-col items-center justify-center gap-1.5 pointer-events-auto">
+            <div
+              ref={specCtaRef}
+              className="mt-4 sm:mt-5 flex flex-col items-center justify-center gap-1.5 will-change-transform"
+              style={{ opacity: 0, transform: "translateY(14px)", pointerEvents: "none" }}
+            >
               <a
                 href="#products"
                 className="group flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300 hover:opacity-85"
