@@ -460,23 +460,52 @@ export default function HeroAboutExperience() {
       switchingProductRef.current = true;
       triggerVibrateAndShake();
 
-      // 1. Immediately reset the 4 bottom spec points to hidden
-      revealedSpecsRef.current = 0;
-      setRevealedSpecs(0);
-      const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current, specCtaRef.current];
-      specEls.forEach((el) => {
-        if (el) {
-          gsap.killTweensOf(el);
-          gsap.set(el, { opacity: 0, y: 28, scale: 0.94, pointerEvents: "none" });
-        }
-      });
-
+      const wasRevealed = revealedSpecsRef.current;
+      const shouldShowSpecs = wasRevealed > 0;
       const dir = direction === "next" ? 1 : -1;
+
       const headerEl = productHeaderRef.current;
       const speakerWrapEl = speakerImageWrapRef.current;
+      const allSpecCards = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current];
+      const ctaEl = specCtaRef.current;
+
       const targets = [headerEl, speakerWrapEl].filter(Boolean);
 
-      // 2. Animate out current product
+      // 1. Animate out current product
+      if (shouldShowSpecs) {
+        // Gracefully slide and fade out currently visible spec options
+        const visibleCards = allSpecCards.slice(0, wasRevealed).filter(Boolean);
+        gsap.to(visibleCards, {
+          opacity: 0,
+          x: -dir * 30,
+          y: 12,
+          scale: 0.94,
+          duration: 0.24,
+          stagger: 0.03,
+          ease: "power2.in",
+        });
+        if (ctaEl && wasRevealed >= 4) {
+          gsap.to(ctaEl, {
+            opacity: 0,
+            y: 10,
+            duration: 0.2,
+            ease: "power2.in",
+          });
+        }
+      } else {
+        // Ensure specs remain hidden
+        allSpecCards.forEach((el) => {
+          if (el) {
+            gsap.killTweensOf(el);
+            gsap.set(el, { opacity: 0, y: 28, scale: 0.94, pointerEvents: "none" });
+          }
+        });
+        if (ctaEl) {
+          gsap.killTweensOf(ctaEl);
+          gsap.set(ctaEl, { opacity: 0, y: 14, pointerEvents: "none" });
+        }
+      }
+
       gsap.to(targets, {
         opacity: 0,
         x: -dir * 38,
@@ -491,7 +520,15 @@ export default function HeroAboutExperience() {
           currentProductIndexRef.current = nextIdx;
           setCurrentProductIndex(nextIdx);
 
-          // 3. Animate in new product
+          if (shouldShowSpecs) {
+            revealedSpecsRef.current = 4;
+            setRevealedSpecs(4);
+          } else {
+            revealedSpecsRef.current = 0;
+            setRevealedSpecs(0);
+          }
+
+          // 2. Animate in new product header & speaker
           gsap.fromTo(
             targets,
             { opacity: 0, x: dir * 38, scale: 0.92 },
@@ -507,6 +544,50 @@ export default function HeroAboutExperience() {
               },
             }
           );
+
+          // 3. If bottom options have already come up, gracefully animate in the new product's options with GSAP!
+          if (shouldShowSpecs) {
+            requestAnimationFrame(() => {
+              const newCards = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current].filter(Boolean);
+              gsap.killTweensOf(newCards);
+              gsap.fromTo(
+                newCards,
+                {
+                  opacity: 0,
+                  x: dir * 30,
+                  y: 22,
+                  scale: 0.93,
+                },
+                {
+                  opacity: 1,
+                  x: 0,
+                  y: 0,
+                  scale: 1,
+                  duration: 0.52,
+                  stagger: 0.08,
+                  delay: 0.08,
+                  ease: "back.out(1.4)",
+                  pointerEvents: "auto",
+                }
+              );
+
+              if (specCtaRef.current) {
+                gsap.killTweensOf(specCtaRef.current);
+                gsap.fromTo(
+                  specCtaRef.current,
+                  { opacity: 0, y: 14 },
+                  {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.42,
+                    delay: 0.42,
+                    ease: "power2.out",
+                    pointerEvents: "auto",
+                  }
+                );
+              }
+            });
+          }
         },
       });
     },
@@ -1372,7 +1453,7 @@ export default function HeroAboutExperience() {
                     : spec4Ref;
                 return (
                   <div
-                    key={`${activeProduct.id}-${idx}`}
+                    key={idx}
                     ref={ref}
                     className="flex items-center gap-3 sm:gap-4 will-change-transform"
                     style={{
