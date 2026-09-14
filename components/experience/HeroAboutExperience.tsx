@@ -10,8 +10,8 @@ import AboutBackground from "@/components/about/AboutBackground";
 import AboutContentBlock from "@/components/about/AboutContentBlock";
 import UnifiedParticleFlow from "./UnifiedParticleFlow";
 
-const LOGO_SCALE = 1.0;
-const PARTICLE_SCALE = 2.5;
+const SCREEN2_LOGO_SCALE = 1.34;
+const SCREEN2_PARTICLE_SCALE = 1.66;
 const HERO_PARTICLE_SCALE = 1.9;
 
 export default function HeroAboutExperience() {
@@ -338,12 +338,12 @@ export default function HeroAboutExperience() {
         {/*
           THE SINGLE UNIFIED PARTICLE CANVAS:
           Starts at Hero position (left column), fluidly flows into the center of the About screen,
-          morphs colors from lavender/white to electric blue/white, and scales up to LOGO_SCALE (1.0x) & PARTICLE_SCALE (2.50x).
+          morphs colors from lavender/white to electric blue/white, and scales up to SCREEN2_LOGO_SCALE (1.34x) & SCREEN2_PARTICLE_SCALE (1.66x).
         */}
         <UnifiedParticleFlow
           progress={scrollProgress}
-          logoScale={LOGO_SCALE}
-          particleScale={PARTICLE_SCALE}
+          logoScale={SCREEN2_LOGO_SCALE}
+          particleScale={SCREEN2_PARTICLE_SCALE}
           heroParticleScale={HERO_PARTICLE_SCALE}
         />
 
@@ -409,10 +409,11 @@ export default function HeroAboutExperience() {
 
             {/* Symmetrical 3-Column Layout framing the flowing central particle mark */}
             <div className="mt-8 grid grid-cols-1 items-center gap-y-8 lg:mt-6 lg:grid-cols-[1fr_minmax(320px,460px)_1fr] lg:gap-x-8 xl:gap-x-12">
-              {/* Left Side: OUR VISION & OUR COMMITMENT */}
+              {/* Left Side: OUR VISION & OUR COMMITMENT (Left Aligned) */}
               <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
                 <div ref={leftBlock1Ref} className="will-change-transform">
                   <AboutContentBlock
+                    align="left"
                     tag="OUR VISION"
                     title={
                       <>
@@ -425,6 +426,7 @@ export default function HeroAboutExperience() {
 
                 <div ref={leftBlock2Ref} className="will-change-transform">
                   <AboutContentBlock
+                    align="left"
                     tag="OUR COMMITMENT"
                     title={
                       <>
@@ -439,10 +441,11 @@ export default function HeroAboutExperience() {
               {/* Centre: Focal Frame for the Centered Particles */}
               <div className="order-first flex h-[34vh] min-h-[260px] max-h-[480px] w-full items-center justify-center lg:order-none lg:h-[48vh]" />
 
-              {/* Right Side: OUR STORY & OUR MISSION */}
+              {/* Right Side: OUR STORY & OUR MISSION (Right Aligned) */}
               <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
                 <div ref={rightBlock1Ref} className="will-change-transform">
                   <AboutContentBlock
+                    align="right"
                     tag="OUR STORY"
                     title={
                       <>
@@ -455,6 +458,7 @@ export default function HeroAboutExperience() {
 
                 <div ref={rightBlock2Ref} className="will-change-transform">
                   <AboutContentBlock
+                    align="right"
                     tag="OUR MISSION"
                     title={
                       <>
