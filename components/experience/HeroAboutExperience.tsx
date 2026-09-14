@@ -1004,7 +1004,7 @@ export default function HeroAboutExperience() {
               style={{ opacity: 0, transform: "translateY(14px)", pointerEvents: "none" }}
             >
               <a
-                href="#products"
+                href="#brands"
                 className="group flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300 hover:opacity-85"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/5 text-fg-mute backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0.5">
@@ -1013,7 +1013,7 @@ export default function HeroAboutExperience() {
                   </svg>
                 </div>
                 <span className="text-[10px] font-semibold tracking-[0.24em] text-fg-mute/80 uppercase transition-colors group-hover:text-fg">
-                  VIEW MORE PRODUCTS
+                  BRANDS WE&apos;VE WORKED WITH
                 </span>
               </a>
             </div>
