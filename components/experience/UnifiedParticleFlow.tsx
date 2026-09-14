@@ -491,7 +491,7 @@ export default function UnifiedParticleFlow({
   return (
     <div
       ref={containerRef}
-      className={`pointer-events-none fixed inset-0 z-35 overflow-hidden ${className}`}
+      className={`pointer-events-none fixed inset-0 z-20 overflow-hidden ${className}`}
       aria-hidden="true"
     >
       <canvas ref={canvasRef} className="block h-full w-full" />

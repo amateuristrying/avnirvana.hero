@@ -23,7 +23,13 @@ export default function HeroAboutExperience() {
   // Content layers
   const heroContentRef = useRef<HTMLDivElement>(null);
   const aboutContentRef = useRef<HTMLDivElement>(null);
-  const glassRef = useRef<HTMLDivElement>(null);
+
+  // About Screen Text Block refs for sequential GSAP animation
+  const headerRef = useRef<HTMLDivElement>(null);
+  const leftBlock1Ref = useRef<HTMLDivElement>(null);
+  const leftBlock2Ref = useRef<HTMLDivElement>(null);
+  const rightBlock1Ref = useRef<HTMLDivElement>(null);
+  const rightBlock2Ref = useRef<HTMLDivElement>(null);
 
   // Timeline reference
   const tlRef = useRef<gsap.core.Timeline | null>(null);
@@ -36,23 +42,6 @@ export default function HeroAboutExperience() {
 
   // Realtime scroll progress passed to the unified canvas (0.0 to 1.0)
   const [scrollProgress, setScrollProgress] = useState(0);
-
-  // Liquid glass mouse reflection
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0, active: false });
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!glassRef.current) return;
-    const rect = glassRef.current.getBoundingClientRect();
-    setMousePos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      active: true,
-    });
-  };
-
-  const handlePointerLeave = () => {
-    setMousePos((prev) => ({ ...prev, active: false }));
-  };
 
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
@@ -98,64 +87,138 @@ export default function HeroAboutExperience() {
             y: -35,
             pointerEvents: "none",
             ease: "power1.in",
-            duration: 0.32,
+            duration: 0.28,
           },
           0,
         );
       }
 
-      // 2. Background crossfade: Hero filament -> About stipple matrix
+      // 2. Background crossfade: Hero filament -> About Ferrofluid
       if (heroBgRef.current && aboutBgRef.current) {
         tl.to(
           heroBgRef.current,
           {
             opacity: 0,
-            ease: "none",
-            duration: 0.45,
+            ease: "power1.inOut",
+            duration: 0.36,
           },
-          0.12,
+          0.08,
         );
         tl.to(
           aboutBgRef.current,
           {
             opacity: 1,
-            ease: "none",
-            duration: 0.45,
+            ease: "power1.inOut",
+            duration: 0.36,
           },
-          0.12,
+          0.08,
         );
       }
 
-      // 3. About Liquid Glass chassis entrance
-      if (aboutContentRef.current && glassRef.current) {
-        tl.fromTo(
+      // 3. About layer container fade & pointer activation
+      if (aboutContentRef.current) {
+        tl.to(
           aboutContentRef.current,
-          {
-            opacity: 0,
-            pointerEvents: "none",
-          },
           {
             opacity: 1,
             pointerEvents: "auto",
-            ease: "power2.out",
-            duration: 0.45,
+            duration: 0.1,
           },
-          0.55,
+          0.2,
         );
+      }
 
+      // 4. Header entrance
+      if (headerRef.current) {
         tl.fromTo(
-          glassRef.current,
+          headerRef.current,
           {
-            scale: 0.94,
-            y: 35,
+            opacity: 0,
+            y: 24,
           },
           {
-            scale: 1,
+            opacity: 1,
             y: 0,
             ease: "power2.out",
-            duration: 0.45,
+            duration: 0.3,
           },
-          0.55,
+          0.25,
+        );
+      }
+
+      // 5. First text on both sides animated transition (OUR VISION & OUR STORY)
+      if (leftBlock1Ref.current) {
+        tl.fromTo(
+          leftBlock1Ref.current,
+          {
+            opacity: 0,
+            y: 28,
+            x: -16,
+          },
+          {
+            opacity: 1,
+            y: 0,
+            x: 0,
+            ease: "power2.out",
+            duration: 0.3,
+          },
+          0.42,
+        );
+      }
+      if (rightBlock1Ref.current) {
+        tl.fromTo(
+          rightBlock1Ref.current,
+          {
+            opacity: 0,
+            y: 28,
+            x: 16,
+          },
+          {
+            opacity: 1,
+            y: 0,
+            x: 0,
+            ease: "power2.out",
+            duration: 0.3,
+          },
+          0.42,
+        );
+      }
+
+      // 6. Second text on both sides animated transition (OUR COMMITMENT & OUR MISSION)
+      if (leftBlock2Ref.current) {
+        tl.fromTo(
+          leftBlock2Ref.current,
+          {
+            opacity: 0,
+            y: 28,
+            x: -16,
+          },
+          {
+            opacity: 1,
+            y: 0,
+            x: 0,
+            ease: "power2.out",
+            duration: 0.3,
+          },
+          0.66,
+        );
+      }
+      if (rightBlock2Ref.current) {
+        tl.fromTo(
+          rightBlock2Ref.current,
+          {
+            opacity: 0,
+            y: 28,
+            x: 16,
+          },
+          {
+            opacity: 1,
+            y: 0,
+            x: 0,
+            ease: "power2.out",
+            duration: 0.3,
+          },
+          0.66,
         );
       }
 
@@ -307,137 +370,90 @@ export default function HeroAboutExperience() {
         </div>
 
         {/* ============================================================ */}
-        {/* LAYER 2: ABOUT SCREEN CONTENT (LIQUID GLASS CHASSIS)         */}
+        {/* LAYER 2: ABOUT SCREEN CONTENT (HOVERING OVER FERROFLUID)     */}
         {/* ============================================================ */}
         <div
           id="about"
           ref={aboutContentRef}
-          className="absolute inset-0 z-20 flex flex-col justify-center px-4 opacity-0 sm:px-6 lg:px-8 py-10"
+          className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-center px-4 opacity-0 sm:px-6 lg:px-8 py-10"
         >
           <div className="mx-auto w-full max-w-[1400px]">
-            {/* The Big Rectangular Liquid Glass Chassis */}
-            <div
-              ref={glassRef}
-              onPointerMove={handlePointerMove}
-              onPointerLeave={handlePointerLeave}
-              style={{
-                backdropFilter: "blur(20px) saturate(160%)",
-                WebkitBackdropFilter: "blur(20px) saturate(160%)",
-                background:
-                  "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(138, 182, 255, 0.03) 30%, rgba(12, 18, 34, 0.62) 60%, rgba(10, 15, 28, 0.72) 100%)",
-              }}
-              className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] lg:rounded-[42px] border border-white/20 p-6 sm:p-10 lg:p-12 xl:p-14 shadow-[0_32px_90px_-20px_rgba(0,0,0,0.85),0_0_60px_-15px_rgba(58,134,255,0.18)]"
-            >
-              {/* Liquid Top Rim & Inner Highlight */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_1.5px_1.5px_0_rgba(255,255,255,0.4),inset_0_-1px_1px_0_rgba(138,182,255,0.18),inset_0_0_40px_0_rgba(138,182,255,0.06)]"
-              />
-
-              {/* Ambient Liquid Shimmer / Flowing Caustic Wave Layer */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-[50%] opacity-40 mix-blend-screen"
-              >
-                <div className="animate-liquid-shimmer will-change-transform h-[200%] w-[200%] bg-[radial-gradient(ellipse_60%_50%_at_45%_45%,rgba(138,182,255,0.22)_0%,rgba(91,169,222,0.08)_35%,transparent_65%)]" />
+            {/* Top Center: Compact Hierarchy Header */}
+            <div ref={headerRef} className="mx-auto max-w-[760px] text-center will-change-transform">
+              <div className="inline-flex items-center justify-center gap-2.5">
+                <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
+                <span className="text-[11.5px] font-semibold tracking-[0.24em] text-fg-mute/95 uppercase sm:text-[12px]">
+                  ABOUT AV NIRVANA
+                </span>
+                <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
               </div>
 
-              {/* Liquid Glass Fluid Refraction Waves */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_80%_40%_at_50%_0%,rgba(255,255,255,0.12)_0%,transparent_60%),radial-gradient(ellipse_60%_30%_at_50%_100%,rgba(138,182,255,0.08)_0%,transparent_60%)]"
-              />
+              <h2 className="mt-2 text-[clamp(1.6rem,2.5vw,2.45rem)] font-bold leading-[1.15] tracking-[-0.035em] text-fg drop-shadow-[0_2px_14px_rgba(0,0,0,0.9)]">
+                Experience. Expertise. A More Connected World.
+              </h2>
 
-              {/* Interactive Mouse Caustic Highlight (Real Liquid Glare) */}
-              <div
-                aria-hidden="true"
-                style={{
-                  background: mousePos.active
-                    ? `radial-gradient(circle 380px at ${mousePos.x}px ${mousePos.y}px, rgba(138, 182, 255, 0.16), rgba(255, 255, 255, 0.05) 35%, transparent 70%)`
-                    : "none",
-                  opacity: mousePos.active ? 1 : 0,
-                }}
-                className="pointer-events-none absolute inset-0 transition-opacity duration-300"
-              />
+              <p className="mx-auto mt-2.5 max-w-[54ch] text-[clamp(0.88rem,0.98vw,1.02rem)] font-light leading-[1.62] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                For over 17 years, we’ve been at the forefront of audio-visual innovation, bringing
+                the world’s finest technologies to India.
+              </p>
+            </div>
 
-              {/* Liquid Specular Diagonal Sheen */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-[linear-gradient(125deg,rgba(255,255,255,0.07)_0%,rgba(138,182,255,0.02)_25%,transparent_48%,rgba(255,255,255,0.02)_100%)]"
-              />
-
-              {/* Content Structure inside the Liquid Glass */}
-              <div className="relative z-10">
-                {/* Top Center: Compact Hierarchy Header */}
-                <div className="mx-auto max-w-[760px] text-center">
-                  <div className="inline-flex items-center justify-center gap-2.5">
-                    <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
-                    <span className="text-[11.5px] font-semibold tracking-[0.24em] text-fg-mute/95 uppercase sm:text-[12px]">
-                      ABOUT AV NIRVANA
-                    </span>
-                    <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
-                  </div>
-
-                  <h2 className="mt-2 text-[clamp(1.6rem,2.5vw,2.45rem)] font-bold leading-[1.15] tracking-[-0.035em] text-fg drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
-                    Experience. Expertise. A More Connected World.
-                  </h2>
-
-                  <p className="mx-auto mt-2.5 max-w-[54ch] text-[clamp(0.88rem,0.98vw,1.02rem)] font-light leading-[1.62] text-fg-mute drop-shadow-[0_1px_10px_rgba(0,0,0,0.8)]">
-                    For over 17 years, we’ve been at the forefront of audio-visual innovation, bringing
-                    the world’s finest technologies to India.
-                  </p>
+            {/* Symmetrical 3-Column Layout framing the flowing central particle mark */}
+            <div className="mt-8 grid grid-cols-1 items-center gap-y-8 lg:mt-6 lg:grid-cols-[1fr_minmax(320px,460px)_1fr] lg:gap-x-8 xl:gap-x-12">
+              {/* Left Side: OUR VISION & OUR COMMITMENT */}
+              <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
+                <div ref={leftBlock1Ref} className="will-change-transform">
+                  <AboutContentBlock
+                    tag="OUR VISION"
+                    title={
+                      <>
+                        A <span className="text-[#8AB6FF]">Trusted</span> Leader in AV
+                      </>
+                    }
+                    description="To be India’s most trusted and influential AV distribution company for path-breaking and converging technologies across the AV space."
+                  />
                 </div>
 
-                {/* Symmetrical 3-Column Layout framing the flowing central particle mark */}
-                <div className="mt-8 grid grid-cols-1 items-center gap-y-8 lg:mt-6 lg:grid-cols-[1fr_minmax(320px,460px)_1fr] lg:gap-x-8 xl:gap-x-12">
-                  {/* Left Side: OUR VISION & OUR COMMITMENT */}
-                  <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
-                    <AboutContentBlock
-                      tag="OUR VISION"
-                      title={
-                        <>
-                          A <span className="text-[#8AB6FF]">Trusted</span> Leader in AV
-                        </>
-                      }
-                      description="To be India’s most trusted and influential AV distribution company for path-breaking and converging technologies across the AV space."
-                    />
+                <div ref={leftBlock2Ref} className="will-change-transform">
+                  <AboutContentBlock
+                    tag="OUR COMMITMENT"
+                    title={
+                      <>
+                        With You at <span className="text-[#B9AEE0]">Every Stage</span>
+                      </>
+                    }
+                    description="To support our partners at every stage, from pre-sales consultation and solution design to post-sales service and technical support, backed by pan-India reach, reliable logistics, in-house expertise and continuous training."
+                  />
+                </div>
+              </div>
 
-                    <AboutContentBlock
-                      tag="OUR COMMITMENT"
-                      title={
-                        <>
-                          With You at <span className="text-[#B9AEE0]">Every Stage</span>
-                        </>
-                      }
-                      description="To support our partners at every stage, from pre-sales consultation and solution design to post-sales service and technical support, backed by pan-India reach, reliable logistics, in-house expertise and continuous training."
-                    />
-                  </div>
+              {/* Centre: Focal Frame for the Centered Particles */}
+              <div className="order-first flex h-[34vh] min-h-[260px] max-h-[480px] w-full items-center justify-center lg:order-none lg:h-[48vh]" />
 
-                  {/* Centre: Focal Frame for the Centered Particles */}
-                  <div className="order-first flex h-[34vh] min-h-[260px] max-h-[480px] w-full items-center justify-center lg:order-none lg:h-[48vh]" />
+              {/* Right Side: OUR STORY & OUR MISSION */}
+              <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
+                <div ref={rightBlock1Ref} className="will-change-transform">
+                  <AboutContentBlock
+                    tag="OUR STORY"
+                    title={
+                      <>
+                        <span className="text-[#8AB6FF]">17+ Years</span> of Industry Expertise
+                      </>
+                    }
+                    description="Drawing on more than 17 years of industry expertise, we specialise in the distribution of world-class, premium audio-visual products and the delivery of advanced solutions for private cinemas, professional AV installations, and unique design-led environments."
+                  />
+                </div>
 
-                  {/* Right Side: OUR STORY & OUR MISSION */}
-                  <div className="flex flex-col gap-6 sm:gap-8 lg:gap-10">
-                    <AboutContentBlock
-                      tag="OUR STORY"
-                      title={
-                        <>
-                          <span className="text-[#8AB6FF]">17+ Years</span> of Industry Expertise
-                        </>
-                      }
-                      description="Drawing on more than 17 years of industry expertise, we specialise in the distribution of world-class, premium audio-visual products and the delivery of advanced solutions for private cinemas, professional AV installations, and unique design-led environments."
-                    />
-
-                    <AboutContentBlock
-                      tag="OUR MISSION"
-                      title={
-                        <>
-                          Redefining <span className="text-[#B9AEE0]">What’s Possible</span>
-                        </>
-                      }
-                      description="To deliver the world’s most advanced technologies and redefine the AV landscape through innovation, technical expertise and uncompromising customer support."
-                    />
-                  </div>
+                <div ref={rightBlock2Ref} className="will-change-transform">
+                  <AboutContentBlock
+                    tag="OUR MISSION"
+                    title={
+                      <>
+                        Redefining <span className="text-[#B9AEE0]">What’s Possible</span>
+                      </>
+                    }
+                    description="To deliver the world’s most advanced technologies and redefine the AV landscape through innovation, technical expertise and uncompromising customer support."
+                  />
                 </div>
               </div>
             </div>
