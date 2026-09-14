@@ -43,6 +43,9 @@ export default function HeroAboutExperience() {
   // Realtime scroll progress passed to the unified canvas (0.0 to 1.0)
   const [scrollProgress, setScrollProgress] = useState(0);
 
+  // Top header Y-axis slider offset
+  const [headerYOffset, setHeaderYOffset] = useState(0);
+
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
     animatingRef.current = true;
@@ -378,24 +381,32 @@ export default function HeroAboutExperience() {
           className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-center px-4 opacity-0 sm:px-6 lg:px-8 py-10"
         >
           <div className="mx-auto w-full max-w-[1400px]">
-            {/* Top Center: Compact Hierarchy Header */}
-            <div ref={headerRef} className="mx-auto max-w-[760px] text-center will-change-transform">
-              <div className="inline-flex items-center justify-center gap-2.5">
-                <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
-                <span className="text-[11.5px] font-semibold tracking-[0.24em] text-fg-mute/95 uppercase sm:text-[12px]">
-                  ABOUT AV NIRVANA
-                </span>
-                <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
+            {/* Top Center: Compact Hierarchy Header (Controlled by Y-Axis Slider) */}
+            <div
+              style={{
+                transform: `translateY(${headerYOffset}px)`,
+                transition: "transform 0.05s ease-out",
+              }}
+              className="will-change-transform"
+            >
+              <div ref={headerRef} className="mx-auto max-w-[760px] text-center will-change-transform">
+                <div className="inline-flex items-center justify-center gap-2.5">
+                  <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,rgba(138,182,255,0.85))]" />
+                  <span className="text-[11.5px] font-semibold tracking-[0.24em] text-fg-mute/95 uppercase sm:text-[12px]">
+                    ABOUT AV NIRVANA
+                  </span>
+                  <span className="h-px w-8 bg-[linear-gradient(90deg,rgba(138,182,255,0.85),transparent)]" />
+                </div>
+
+                <h2 className="mt-2 text-[clamp(1.6rem,2.5vw,2.45rem)] font-bold leading-[1.15] tracking-[-0.035em] text-fg drop-shadow-[0_2px_14px_rgba(0,0,0,0.9)]">
+                  Experience. Expertise. A More Connected World.
+                </h2>
+
+                <p className="mx-auto mt-2.5 max-w-[54ch] text-[clamp(0.88rem,0.98vw,1.02rem)] font-light leading-[1.62] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
+                  For over 17 years, we’ve been at the forefront of audio-visual innovation, bringing
+                  the world’s finest technologies to India.
+                </p>
               </div>
-
-              <h2 className="mt-2 text-[clamp(1.6rem,2.5vw,2.45rem)] font-bold leading-[1.15] tracking-[-0.035em] text-fg drop-shadow-[0_2px_14px_rgba(0,0,0,0.9)]">
-                Experience. Expertise. A More Connected World.
-              </h2>
-
-              <p className="mx-auto mt-2.5 max-w-[54ch] text-[clamp(0.88rem,0.98vw,1.02rem)] font-light leading-[1.62] text-fg-mute drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-                For over 17 years, we’ve been at the forefront of audio-visual innovation, bringing
-                the world’s finest technologies to India.
-              </p>
             </div>
 
             {/* Symmetrical 3-Column Layout framing the flowing central particle mark */}
@@ -455,6 +466,71 @@ export default function HeroAboutExperience() {
                     description="To deliver the world’s most advanced technologies and redefine the AV landscape through innovation, technical expertise and uncompromising customer support."
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================ */}
+        {/* FLOATING HEADER Y-AXIS CONTROL SLIDER                        */}
+        {/* ============================================================ */}
+        <div
+          className={`fixed bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-2 transition-all duration-300 ${
+            scrollProgress > 0.2 || currentScreen === 1
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 pointer-events-none translate-y-4"
+          }`}
+        >
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-white/20 bg-[#0c1222]/92 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[11px] font-semibold tracking-wider text-fg-mute uppercase">
+                Header Y-Axis Slider
+              </span>
+              <span className="font-mono text-[13px] font-bold text-[#8AB6FF]">
+                {headerYOffset > 0 ? `+${headerYOffset}` : headerYOffset}px
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-fg-mute/70">-200px</span>
+              <input
+                type="range"
+                min="-200"
+                max="200"
+                step="1"
+                value={headerYOffset}
+                onChange={(e) => setHeaderYOffset(Number(e.target.value))}
+                className="h-1.5 w-44 sm:w-56 cursor-pointer appearance-none rounded-lg bg-white/20 accent-[#8AB6FF]"
+              />
+              <span className="text-[10px] font-mono text-fg-mute/70">+200px</span>
+
+              <button
+                type="button"
+                onClick={() => setHeaderYOffset(0)}
+                className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-fg hover:bg-white/20 transition active:scale-95"
+              >
+                Reset
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[9.5px] uppercase tracking-wider text-fg-mute/60">Presets:</span>
+              <div className="flex items-center gap-1.5">
+                {[-80, -40, -20, 0, 20, 40, 80].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setHeaderYOffset(val)}
+                    className={`rounded px-1.5 py-0.5 text-[9.5px] font-mono transition ${
+                      headerYOffset === val
+                        ? "bg-[#8AB6FF] text-[#0c1222] font-bold shadow-[0_0_10px_rgba(138,182,255,0.5)]"
+                        : "bg-white/5 text-fg-mute hover:bg-white/15"
+                    }`}
+                  >
+                    {val > 0 ? `+${val}` : val}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
