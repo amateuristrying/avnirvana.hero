@@ -39,7 +39,7 @@ export default function AboutContentBlock({
 
       {/* Main heading */}
       <h3
-        className={`text-[clamp(1.2rem,1.48vw,1.6rem)] font-bold leading-[1.25] tracking-[-0.025em] text-fg [text-shadow:0_1px_14px_rgba(16,21,36,0.95)] ${
+        className={`text-[clamp(1.2rem,1.48vw,1.6rem)] font-bold leading-[1.25] tracking-[-0.025em] text-white [text-shadow:0_1px_14px_rgba(16,21,36,0.95)] ${
           isRight ? "text-right" : "text-left"
         }`}
       >

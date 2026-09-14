@@ -975,11 +975,7 @@ export default function HeroAboutExperience() {
                   <AboutContentBlock
                     align="left"
                     tag="OUR VISION"
-                    title={
-                      <>
-                        A <span className="text-[#8AB6FF]">Trusted</span> Leader in AV
-                      </>
-                    }
+                    title="A Trusted Leader in AV"
                     description="To be India’s most trusted and influential AV distribution company for path-breaking and converging technologies across the AV space."
                   />
                 </div>
@@ -992,11 +988,7 @@ export default function HeroAboutExperience() {
                   <AboutContentBlock
                     align="left"
                     tag="OUR COMMITMENT"
-                    title={
-                      <>
-                        With You at <span className="text-[#B9AEE0]">Every Stage</span>
-                      </>
-                    }
+                    title="With You at Every Stage"
                     description="To support our partners at every stage, from pre-sales consultation and solution design to post-sales service and technical support, backed by pan-India reach, reliable logistics, in-house expertise and continuous training."
                   />
                 </div>
@@ -1015,11 +1007,7 @@ export default function HeroAboutExperience() {
                   <AboutContentBlock
                     align="right"
                     tag="OUR STORY"
-                    title={
-                      <>
-                        <span className="text-[#8AB6FF]">17+ Years</span> of Industry Expertise
-                      </>
-                    }
+                    title="17+ Years of Industry Expertise"
                     description="Drawing on more than 17 years of industry expertise, we specialise in the distribution of world-class, premium audio-visual products and the delivery of advanced solutions for private cinemas, professional AV installations, and unique design-led environments."
                   />
                 </div>
@@ -1032,11 +1020,7 @@ export default function HeroAboutExperience() {
                   <AboutContentBlock
                     align="right"
                     tag="OUR MISSION"
-                    title={
-                      <>
-                        Redefining <span className="text-[#B9AEE0]">What’s Possible</span>
-                      </>
-                    }
+                    title="Redefining What’s Possible"
                     description="To deliver the world’s most advanced technologies and redefine the AV landscape through innovation, technical expertise and uncompromising customer support."
                   />
                 </div>
