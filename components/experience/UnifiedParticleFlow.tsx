@@ -47,6 +47,24 @@ const GREEN_TIERS = [
   { rgb: "5,150,105", alpha: 0.50, size: 1.04 },   // Deep Forest Accent
 ];
 
+// Product 3 Color Tiers (White & Purple Celestial Mix — Minimal Dust)
+const PURPLE_TIERS = [
+  { rgb: "255,255,255", alpha: 0.98, size: 1.65 }, // Brilliant Diamond White
+  { rgb: "243,232,255", alpha: 0.95, size: 1.52 }, // Glowing Lavender White
+  { rgb: "216,180,254", alpha: 0.90, size: 1.38 }, // Vivid Electric Lilac
+  { rgb: "168,85,247", alpha: 0.82, size: 1.24 },  // Radiant Neon Purple
+  { rgb: "126,34,206", alpha: 0.55, size: 1.05 },  // Deep Royal Amethyst
+];
+
+// Product 4 Color Tiers (White & Light Blue Mix — Helical Cylindrical Flow)
+const LIGHT_BLUE_TIERS = [
+  { rgb: "255,255,255", alpha: 0.98, size: 1.68 }, // Diamond Pure White
+  { rgb: "224,242,254", alpha: 0.95, size: 1.54 }, // Ice Crystal Blue
+  { rgb: "125,211,252", alpha: 0.90, size: 1.40 }, // Luminous Sky Blue
+  { rgb: "56,189,248", alpha: 0.84, size: 1.25 },  // Electric Cerulean
+  { rgb: "2,132,199", alpha: 0.58, size: 1.06 },   // Deep Sapphire Glow
+];
+
 const CORE_TIER_WEIGHTS = [0.32, 0.30, 0.24, 0.11, 0.03];
 const HALO_TIER_WEIGHTS = [0, 0.04, 0.14, 0.42, 0.40];
 
@@ -134,6 +152,18 @@ interface ParticleField {
   // Product 2 (Planter Speaker) Sinusoidal Wave Coordinates
   waveGreenT: Float32Array;
   waveGreenCrossOffset: Float32Array;
+  // Product 3 (Minimal Dust) Horizontal Coordinates
+  dustT: Float32Array;
+  dustCrossY: Float32Array;
+  dustSizeMult: Float32Array;
+  dustPhase: Float32Array;
+  dustSpeed: Float32Array;
+  // Product 4 (Helical Cylindrical Spiral) Coordinates
+  helixU: Float32Array;
+  helixCrossRadial: Float32Array;
+  helixAngleOffset: Float32Array;
+  helixSpeed: Float32Array;
+  helixSizeMult: Float32Array;
 }
 
 function buildField(count: number, seed = 20260913): ParticleField {
@@ -207,6 +237,17 @@ function buildField(count: number, seed = 20260913): ParticleField {
   const waveRadialOffset = new Float32Array(n);
   const waveGreenT = new Float32Array(n);
   const waveGreenCrossOffset = new Float32Array(n);
+  const dustT = new Float32Array(n);
+  const dustCrossY = new Float32Array(n);
+  const dustSizeMult = new Float32Array(n);
+  const dustPhase = new Float32Array(n);
+  const dustSpeed = new Float32Array(n);
+  // Product 4 arrays
+  const helixU = new Float32Array(n);
+  const helixCrossRadial = new Float32Array(n);
+  const helixAngleOffset = new Float32Array(n);
+  const helixSpeed = new Float32Array(n);
+  const helixSizeMult = new Float32Array(n);
 
   for (let i = 0; i < n; i++) {
     const orig = perm[i];
@@ -253,6 +294,32 @@ function buildField(count: number, seed = 20260913): ParticleField {
     waveGreenT[i] = clamp(i / (n - 1) + tJitter, 0, 1);
     // Core particles cluster along the dense wave curve; halo particles disperse outwards
     waveGreenCrossOffset[i] = halo ? gaussian(rng) * 34 : gaussian(rng) * 12;
+
+    // Product 3: Minimal dust horizontal stream across the middle of screen
+    const tJitterP3 = (rng() - 0.5) * (2.2 / n);
+    dustT[i] = clamp(i / (n - 1) + tJitterP3, 0, 1);
+
+    // Vertical distribution: dense stipple along midline, with delicate dust dispersion
+    // Core particles stay tight to center; halo particles disperse wider with outlier starlight specks
+    const rSparkle = rng();
+    const isBrightStar = rSparkle < 0.14; // ~14% large bright starlight gems (matching reference photo)
+    dustSizeMult[i] = isBrightStar ? 1.55 + rng() * 0.85 : 0.75 + rng() * 0.5;
+
+    const spreadSigma = halo ? 36 : 11.5;
+    dustCrossY[i] = gaussian(rng) * spreadSigma;
+    dustPhase[i] = rng() * Math.PI * 2;
+    dustSpeed[i] = 0.6 + rng() * 0.8;
+
+    // Product 4: Helical Cylindrical Spiral
+    // Smooth uniform coverage along [0, 1] with subtle organic micro-jitter
+    const tJitterP4 = (rng() - 0.5) * (1.8 / n);
+    helixU[i] = clamp(i / (n - 1) + tJitterP4, 0, 1);
+    // 82% core particles tightly trace the blue line; 18% halo sparkles orbit gently
+    helixCrossRadial[i] = halo ? gaussian(rng) * 7.5 : gaussian(rng) * 2.2;
+    helixAngleOffset[i] = (rng() - 0.5) * 0.16;
+    helixSpeed[i] = 0.92 + rng() * 0.16;
+    const rSparkleP4 = rng();
+    helixSizeMult[i] = rSparkleP4 < 0.18 ? 1.55 + rng() * 0.75 : 0.82 + rng() * 0.42;
   }
 
   return {
@@ -282,6 +349,16 @@ function buildField(count: number, seed = 20260913): ParticleField {
     waveRadialOffset,
     waveGreenT,
     waveGreenCrossOffset,
+    dustT,
+    dustCrossY,
+    dustSizeMult,
+    dustPhase,
+    dustSpeed,
+    helixU,
+    helixCrossRadial,
+    helixAngleOffset,
+    helixSpeed,
+    helixSizeMult,
   };
 }
 
@@ -293,6 +370,12 @@ interface UnifiedParticleFlowProps {
   heroParticleScale?: number;
   waveArcLength?: number;
   waveDensity?: number;
+  p3LineWidth?: number;
+  p3ParticleDensity?: number;
+  p4FlowWidth?: number;
+  p4ParticleDensity?: number;
+  p4FlowThickness?: number;
+  p4FlowSpeed?: number;
   className?: string;
 }
 
@@ -304,6 +387,12 @@ export default function UnifiedParticleFlow({
   heroParticleScale = 1.0,
   waveArcLength = 0.85,
   waveDensity = 0.8,
+  p3LineWidth = 3.0,
+  p3ParticleDensity = 2.0,
+  p4FlowWidth = 0.9,
+  p4ParticleDensity = 3.0,
+  p4FlowThickness = 4.2,
+  p4FlowSpeed = 0.1,
   className = "",
 }: UnifiedParticleFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -332,18 +421,40 @@ export default function UnifiedParticleFlow({
   const waveDensityRef = useRef(waveDensity);
   waveDensityRef.current = waveDensity;
 
+  const p3LineWidthRef = useRef(p3LineWidth);
+  p3LineWidthRef.current = p3LineWidth;
+
+  const p3ParticleDensityRef = useRef(p3ParticleDensity);
+  p3ParticleDensityRef.current = p3ParticleDensity;
+
+  const p4FlowWidthRef = useRef(p4FlowWidth);
+  p4FlowWidthRef.current = p4FlowWidth;
+
+  const p4ParticleDensityRef = useRef(p4ParticleDensity);
+  p4ParticleDensityRef.current = p4ParticleDensity;
+
+  const p4FlowThicknessRef = useRef(p4FlowThickness);
+  p4FlowThicknessRef.current = p4FlowThickness;
+
+  const p4FlowSpeedRef = useRef(p4FlowSpeed);
+  p4FlowSpeedRef.current = p4FlowSpeed;
+
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
+    let p4HelixPhase = 0;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Pre-bake Hero, About, and Product 2 (Green) sprites
+    // Pre-bake Hero, About, Product 2 (Green), Product 3 (Purple), and Product 4 (Light Blue) sprites
     const heroSprites = HERO_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
     const aboutSprites = ABOUT_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
     const greenSprites = GREEN_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
+    const purpleSprites = PURPLE_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
+    const lightBlueSprites = LIGHT_BLUE_TIERS.map((t) => makeSprite(t.rgb, t.alpha));
 
     let width = 0;
     let height = 0;
@@ -401,6 +512,9 @@ export default function UnifiedParticleFlow({
     let lastArcLen = -1;
     let lastDensity = -1;
     let lastProdIdx = -1;
+    let lastP3LineWidth = -1;
+    let lastP4FlowWidth = -1;
+    let lastP4FlowThickness = -1;
 
     const updateTargetHomes = (
       f: ParticleField,
@@ -478,7 +592,86 @@ export default function UnifiedParticleFlow({
         const isTransitioning2 = p23 > 0.001 && p23 < 0.999;
         const flowMagnitude2 = isTransitioning2 ? Math.sin(p23 * Math.PI) * (isDesktop ? 68 : 38) : 0;
 
-        if (prodIdx === 1) {
+        if (prodIdx === 3) {
+          // Product 4: Helical Cylindrical Spiral traversing horizontally across the screen
+          const flowWidth = p4FlowWidthRef.current;
+          const thickness = p4FlowThicknessRef.current;
+          const numCoils = isDesktop ? 4.8 : 3.6;
+          const cylRadiusY = (isDesktop ? Math.min(h * 0.22, 160) : Math.min(h * 0.16, 95)) * flowWidth;
+          const cylRadiusZ = cylRadiusY * 0.75;
+          const cylTiltX = (isDesktop ? 26 : 15) * Math.min(flowWidth, 1.6);
+          const startX = -w * 0.08;
+          const endX = w * 1.08;
+
+          for (let i = 0; i < f.n; i++) {
+            const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
+            const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
+
+            const u = f.helixU[i];
+            const xBase = startX + u * (endX - startX);
+            const theta0 = u * (numCoils * Math.PI * 2) + f.helixAngleOffset[i];
+
+            const yBase0 = speakerCy + cylRadiusY * Math.sin(theta0);
+            const zBase0 = cylRadiusZ * Math.cos(theta0);
+            const phi = i * 2.3999632;
+            const spread = f.helixCrossRadial[i] * thickness * 1.4;
+            const crossX = spread * Math.cos(phi);
+            const crossY = spread * Math.sin(phi);
+            const xFinal = xBase + (zBase0 / Math.max(1, cylRadiusZ)) * cylTiltX + crossX;
+            const yFinal = yBase0 + crossY;
+
+            if (isTransitioning2) {
+              const theta2 = i * 0.143 + p23 * 4.9;
+              const pushWeight = f.push[i] * 0.7 + 0.3;
+              const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
+              const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
+              f.hx[i] = aboutX + (xFinal - aboutX) * easedP23 + streamX2;
+              f.hy[i] = aboutY + (yFinal - aboutY) * easedP23 + streamY2;
+            } else {
+              f.hx[i] = aboutX + (xFinal - aboutX) * easedP23;
+              f.hy[i] = aboutY + (yFinal - aboutY) * easedP23;
+            }
+          }
+        } else if (prodIdx === 2) {
+          // Product 3: Reversed Concentric Acoustic Sound Wave Arcs framing the pendant speakers
+          const baseD0 = isDesktop ? Math.min(w * 0.19, h * 0.33) : Math.min(w * 0.26, h * 0.25);
+          const bandStep = isDesktop ? Math.min(w * 0.052, 64) : Math.min(w * 0.065, 38);
+          const rCurve = isDesktop ? Math.min(w * 0.26, h * 0.44) : Math.min(w * 0.32, h * 0.32);
+          const flareMult = 1.35;
+          const taperRatios = [1.0, 0.76, 0.54, 0.36];
+
+          for (let i = 0; i < f.n; i++) {
+            const aboutX = aboutCx + (f.vx[i] - vbCx) * aboutMarkScale;
+            const aboutY = aboutCy + (f.vy[i] - vbCy) * aboutMarkScale;
+
+            const b = f.waveBand[i];
+            const side = f.waveSide[i];
+            const curD = baseD0 + b * bandStep;
+
+            const bandAngleScale = (baseD0 / curD) * taperRatios[b];
+            const angle = f.waveAngle[i] * arcLen * bandAngleScale;
+
+            const radialOffsetMult = [1.25, 1.0, 0.75, 0.50][b];
+            const radialOffset = (f.waveRadialOffset[i] / Math.max(0.1, density)) * radialOffsetMult;
+            const d = curD + radialOffset;
+
+            // Reversed Arc: Closest to center at equator (angle = 0); tips flare outward away from center
+            const waveX = speakerCx + side * (d + rCurve * (1 - Math.cos(angle)) * flareMult);
+            const waveY = speakerCy + (rCurve + radialOffset * 0.35) * Math.sin(angle) * 1.04;
+
+            if (isTransitioning2) {
+              const theta2 = i * 0.143 + p23 * 4.9;
+              const pushWeight = f.push[i] * 0.7 + 0.3;
+              const streamX2 = Math.sin(theta2) * flowMagnitude2 * pushWeight;
+              const streamY2 = Math.cos(theta2 * 1.15) * (flowMagnitude2 * 0.65) * pushWeight;
+              f.hx[i] = aboutX + (waveX - aboutX) * easedP23 + streamX2;
+              f.hy[i] = aboutY + (waveY - aboutY) * easedP23 + streamY2;
+            } else {
+              f.hx[i] = aboutX + (waveX - aboutX) * easedP23;
+              f.hy[i] = aboutY + (waveY - aboutY) * easedP23;
+            }
+          }
+        } else if (prodIdx === 1) {
           // Product 2: Sinusoidal Undulating Emerald Sound Wave traversing across behind the speaker
           const waveFreq = 2.4 * Math.PI * 2;
           const waveAmp = isDesktop ? Math.min(h * 0.17, 115) : Math.min(h * 0.13, 68);
@@ -554,7 +747,7 @@ export default function UnifiedParticleFlow({
     window.addEventListener("resize", resize);
     resize();
 
-    const step = (dt: number, totalTime: number) => {
+    const step = (dt: number, totalTime: number, helixPhase = 0) => {
       if (!field) return;
       const p = progressRef.current;
       const lScale = logoScaleRef.current;
@@ -564,7 +757,10 @@ export default function UnifiedParticleFlow({
       const prodIdx = productIndexRef.current;
       const n = field.n;
 
-      // Recompute target coordinates when position, product, or dimensions change
+      // Recompute target coordinates when position, product, dimensions, or line width change
+      const curP3LineWidth = p3LineWidthRef.current;
+      const curP4FlowWidth = p4FlowWidthRef.current;
+      const curP4FlowThickness = p4FlowThicknessRef.current;
       if (
         p !== lastP ||
         width !== lastW ||
@@ -572,7 +768,10 @@ export default function UnifiedParticleFlow({
         lScale !== lastLScale ||
         arcLen !== lastArcLen ||
         density !== lastDensity ||
-        prodIdx !== lastProdIdx
+        prodIdx !== lastProdIdx ||
+        curP3LineWidth !== lastP3LineWidth ||
+        curP4FlowWidth !== lastP4FlowWidth ||
+        curP4FlowThickness !== lastP4FlowThickness
       ) {
         if (lastProdIdx !== -1 && prodIdx !== lastProdIdx) {
           // Dynamic impulse ripple when switching products on Screen 3
@@ -592,6 +791,9 @@ export default function UnifiedParticleFlow({
         lastArcLen = arcLen;
         lastDensity = density;
         lastProdIdx = prodIdx;
+        lastP3LineWidth = curP3LineWidth;
+        lastP4FlowWidth = curP4FlowWidth;
+        lastP4FlowThickness = curP4FlowThickness;
       }
 
       const vb = AV_LOGO.viewBox;
@@ -618,7 +820,52 @@ export default function UnifiedParticleFlow({
         // Screen 3 Harmonic Sound Wave Acoustic Pulse
         if (p > 0.7) {
           const soundInfluence = clamp((p - 0.7) / 0.3, 0, 1);
-          if (prodIdx === 1) {
+          if (prodIdx === 3) {
+            // Product 4: Continuous 3D helical flow traveling along the cylindrical boundaries
+            const flowWidth = p4FlowWidthRef.current;
+            const thickness = p4FlowThicknessRef.current;
+            const numCoils = isDesktop ? 4.8 : 3.6;
+            const cylRadiusY = (isDesktop ? Math.min(height * 0.22, 160) : Math.min(height * 0.16, 95)) * flowWidth;
+            const cylRadiusZ = cylRadiusY * 0.75;
+            const cylTiltX = (isDesktop ? 26 : 15) * Math.min(flowWidth, 1.6);
+            const speakerCy = isDesktop ? height * 0.49 : height * 0.48;
+            const startX = -width * 0.08;
+            const endX = width * 1.08;
+
+            const u = field.helixU[i];
+            const theta0 = u * (numCoils * Math.PI * 2) + field.helixAngleOffset[i];
+            const theta = theta0 - helixPhase;
+
+            const yBase0 = speakerCy + cylRadiusY * Math.sin(theta0);
+            const zBase0 = cylRadiusZ * Math.cos(theta0);
+            const yBase = speakerCy + cylRadiusY * Math.sin(theta);
+            const zBase = cylRadiusZ * Math.cos(theta);
+
+            const phi = i * 2.3999632;
+            const spread = field.helixCrossRadial[i] * thickness * 1.4;
+            const crossX = spread * Math.cos(phi);
+            const crossY = spread * Math.sin(phi);
+
+            const xBase = startX + u * (endX - startX);
+            const xFinal = xBase + (zBase0 / Math.max(1, cylRadiusZ)) * cylTiltX + crossX;
+            const yFinal = yBase0 + crossY;
+
+            const xHelical = xBase + (zBase / Math.max(1, cylRadiusZ)) * cylTiltX + crossX;
+            const yHelical = yBase + crossY;
+
+            const p23 = clamp(p - 1.0, 0, 1.0);
+            const helixMotionInfluence = easeInOutCubic(p23);
+
+            targetX = field.hx[i] + (xHelical - xFinal) * helixMotionInfluence;
+            targetY = field.hy[i] + (yHelical - yFinal) * helixMotionInfluence;
+          } else if (prodIdx === 2) {
+            // Product 3: Reversed Concentric Acoustic Sound Wave Arc Pulse
+            const b = field.waveBand[i];
+            const side = field.waveSide[i];
+            const pulse = Math.sin(totalTime * 3.4 - b * 0.95) * 5.0 * soundInfluence;
+            targetX += side * pulse;
+            targetY += Math.sin(field.waveAngle[i]) * pulse * 0.35;
+          } else if (prodIdx === 1) {
             // Product 2: Sinusoidal traveling shimmer wave
             const tNorm = field.waveGreenT[i];
             const wavePulse = Math.sin(totalTime * 3.4 - tNorm * 10.0) * 5.5 * soundInfluence;
@@ -670,7 +917,7 @@ export default function UnifiedParticleFlow({
       }
     };
 
-    const draw = () => {
+    const draw = (totalTime = 0, helixPhase = 0) => {
       if (!field) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
@@ -679,6 +926,7 @@ export default function UnifiedParticleFlow({
       const pScale = particleScaleRef.current;
       const heroPScale = heroParticleScaleRef.current;
       const prodIdx = productIndexRef.current;
+      const isDesktop = width >= 1024;
 
       for (let t = 0; t < HERO_TIERS.length; t++) {
         const start = field.tierStart[t];
@@ -700,17 +948,49 @@ export default function UnifiedParticleFlow({
           const p23 = p - 1.0;
           const easedP23 = easeInOutCubic(p23);
           currentSize = aboutSize + (waveSize - aboutSize) * easedP23;
-          if (prodIdx === 1) {
+          if (prodIdx === 3) {
+            sprite = easedP23 > 0.35 ? lightBlueSprites[t] : aboutSprites[t];
+          } else if (prodIdx === 2) {
+            sprite = aboutSprites[t];
+          } else if (prodIdx === 1) {
             sprite = easedP23 > 0.35 ? greenSprites[t] : aboutSprites[t];
           } else {
             sprite = aboutSprites[t];
           }
         }
 
+        const p3Density = p3ParticleDensityRef.current;
+        const activeLimitP3 = Math.round(field.n * Math.min(p3Density, 1.0));
+
+        const p4Density = p4ParticleDensityRef.current;
+        const activeLimitP4 = Math.round(field.n * Math.min(p4Density, 1.0));
+
         for (let i = start; i < start + len; i++) {
+          if (p > 1.0 && prodIdx === 2 && i >= activeLimitP3) continue;
+          if (p > 1.0 && prodIdx === 3 && i >= activeLimitP4) continue;
+
           let size = currentSize;
           if (p > 1.0) {
-            if (prodIdx === 1) {
+            if (prodIdx === 3) {
+              const numCoils = isDesktop ? 4.8 : 3.6;
+              const theta = field.helixU[i] * (numCoils * Math.PI * 2) - helixPhase + field.helixAngleOffset[i];
+              const zNorm = Math.cos(theta); // +1 = front (nearest), -1 = back (farthest)
+              const depthScale = 1.0 + zNorm * 0.34;
+              size = currentSize * field.helixSizeMult[i] * depthScale;
+
+              // Front particles: brilliant diamond white & ice crystal blue; back particles: cerulean / sapphire
+              if (zNorm > 0.28) {
+                sprite = lightBlueSprites[Math.min(t, 1)];
+              } else if (zNorm > -0.2) {
+                sprite = lightBlueSprites[Math.min(t + 1, 3)];
+              } else {
+                sprite = lightBlueSprites[Math.min(t + 2, 4)];
+              }
+            } else if (prodIdx === 2) {
+              const b = field.waveBand[i];
+              const bandSizeMult = [1.22, 1.04, 0.90, 0.78][b];
+              size = currentSize * bandSizeMult;
+            } else if (prodIdx === 1) {
               const tierSizeMult = [1.25, 1.15, 1.0, 0.85, 0.75][t];
               size = currentSize * tierSizeMult;
             } else {
@@ -721,6 +1001,33 @@ export default function UnifiedParticleFlow({
           }
           const half = size * 0.5;
           ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, size, size);
+
+          // Extra companion micro-sparkles when density > 1.0
+          if (p > 1.0 && prodIdx === 2 && p3Density > 1.0 && (i / field.n) < (p3Density - 1.0)) {
+            const companionSize = size * 0.76;
+            const companionHalf = companionSize * 0.5;
+            const compX = field.x[i] + field.wobBX[i] * 6.5;
+            const compY = field.y[i] + field.wobBY[i] * 6.5;
+            ctx.drawImage(sprite, compX - companionHalf, compY - companionHalf, companionSize, companionSize);
+          }
+
+          // Product 4 companion sparkles when p4ParticleDensity > 1.0 (thick volumetric stream)
+          const thickness = p4FlowThicknessRef.current;
+          const p4CompanionFade = clamp((p - 1.15) / 0.55, 0, 1);
+          if (p > 1.0 && prodIdx === 3 && p4CompanionFade > 0.02 && p4Density > 1.0 && (i / field.n) < (p4Density - 1.0)) {
+            const companionSize = size * 0.78 * p4CompanionFade;
+            const companionHalf = companionSize * 0.5;
+            const compX = field.x[i] + field.wobBX[i] * (4.5 * thickness);
+            const compY = field.y[i] + field.wobBY[i] * (4.5 * thickness);
+            ctx.drawImage(sprite, compX - companionHalf, compY - companionHalf, companionSize, companionSize);
+          }
+          if (p > 1.0 && prodIdx === 3 && p4CompanionFade > 0.02 && p4Density > 2.0 && (i / field.n) < (p4Density - 2.0)) {
+            const extraSize = size * 0.65 * p4CompanionFade;
+            const extraHalf = extraSize * 0.5;
+            const compX = field.x[i] - field.wobAY[i] * (3.8 * thickness);
+            const compY = field.y[i] + field.wobAX[i] * (3.8 * thickness);
+            ctx.drawImage(sprite, compX - extraHalf, compY - extraHalf, extraSize, extraSize);
+          }
         }
       }
     };
@@ -732,8 +1039,10 @@ export default function UnifiedParticleFlow({
       last = now;
       if (!(dt > 0)) return;
       if (dt > 0.05) dt = 0.05;
-      step(dt, now / 1000);
-      draw();
+      const curSpeed = 2.6 * (p4FlowSpeedRef.current ?? 0.1);
+      p4HelixPhase += dt * curSpeed;
+      step(dt, now / 1000, p4HelixPhase);
+      draw(now / 1000, p4HelixPhase);
     };
 
     raf = requestAnimationFrame(frame);
