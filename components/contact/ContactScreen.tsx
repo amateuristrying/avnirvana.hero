@@ -172,7 +172,9 @@ export default function ContactScreen({ active, enterDelay = 0.3 }: ContactScree
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(3,17,11,0.8)_100%)]" />
       </div>
 
-      <div ref={navRef}>
+      {/* Own stacking layer: the GSAP transform on this wrapper would otherwise trap the navbar's z-index
+          beneath the content grid that follows, swallowing every click */}
+      <div ref={navRef} className="relative z-50">
         <Navbar menuId="contact-menu" />
       </div>
 
