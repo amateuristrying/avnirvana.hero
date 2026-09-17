@@ -13,7 +13,7 @@ const LINKS: { label: string; href: string; active?: boolean }[] = [
   { label: "Contact", href: "#contact" }, // TODO: hook up once the contact screen exists
 ];
 
-export default function Navbar() {
+export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -95,7 +95,7 @@ export default function Navbar() {
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 aria-expanded={open}
-                aria-controls="hero-menu"
+                aria-controls={menuId}
                 aria-label={open ? "Close menu" : "Open menu"}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-fg transition-colors duration-300 hover:bg-fg/10"
               >
@@ -122,7 +122,7 @@ export default function Navbar() {
 
           {/* Menu panel: floating glass card, since the bar itself no longer has a box */}
           <div
-            id="hero-menu"
+            id={menuId}
             className={`absolute top-full right-0 mt-2 grid w-[min(100%,440px)] overflow-hidden rounded-2xl border border-line bg-canvas/70 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl [text-shadow:none] transition-[grid-template-rows,opacity,visibility] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none invisible grid-rows-[0fr] opacity-0"
             }`}

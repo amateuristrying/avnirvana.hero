@@ -10,6 +10,8 @@ import AboutBackground from "@/components/about/AboutBackground";
 import AboutContentBlock from "@/components/about/AboutContentBlock";
 import BrandsScreen from "@/components/brands/BrandsScreen";
 import SpacesScreen from "@/components/spaces/SpacesScreen";
+import ContactScreen from "@/components/contact/ContactScreen";
+import BandTransition, { type BandTransitionHandle } from "@/components/transitions/BandTransition";
 import UnifiedParticleFlow from "./UnifiedParticleFlow";
 
 const SCREEN2_LOGO_SCALE = 1.34;
@@ -448,6 +450,12 @@ export default function HeroAboutExperience() {
   const explodeProxy = useRef({ value: 0 });
   const [brandsActive, setBrandsActive] = useState(false);
   const [spacesActive, setSpacesActive] = useState(false);
+  const [contactActive, setContactActive] = useState(false);
+  // Brands/Domains jump to their end state instead of animating (only while the band cover hides the stage)
+  const [overlayInstant, setOverlayInstant] = useState(false);
+  const bandRef = useRef<BandTransitionHandle>(null);
+  // Contact actions are defined after goToScreen; navigateOverlay reaches them through this ref
+  const contactApiRef = useRef({ enter: () => {}, exit: () => {} });
   // Guards against trackpad inertia skipping straight through overlay screens
   const overlayEnteredAt = useRef(0);
 
@@ -857,8 +865,10 @@ export default function HeroAboutExperience() {
   }, []);
 
   const handleSpacesExited = useCallback(() => {
-    currentScreenRef.current = 3;
-    setCurrentScreen(3);
+    if (currentScreenRef.current >= 4) {
+      currentScreenRef.current = 3;
+      setCurrentScreen(3);
+    }
     overlayEnteredAt.current = Date.now();
     brandsTransitioningRef.current = false;
   }, []);
@@ -871,8 +881,11 @@ export default function HeroAboutExperience() {
       if (currentScreenRef.current === 3) {
         if (dir > 0) enterSpaces();
         else exitBrands();
-      } else if (currentScreenRef.current === 4 && dir < 0) {
-        exitSpaces();
+      } else if (currentScreenRef.current === 4) {
+        if (dir > 0) contactApiRef.current.enter();
+        else exitSpaces();
+      } else if (currentScreenRef.current === 5 && dir < 0) {
+        contactApiRef.current.exit();
       }
     },
     [enterSpaces, exitSpaces]
@@ -954,7 +967,7 @@ export default function HeroAboutExperience() {
     [triggerVibrateAndShake, tweenExitFill, enterBrands]
   );
 
-  const goToScreen = useCallback((target: number) => {
+  const goToScreen = useCallback((target: number, durationOverride?: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
     animatingRef.current = true;
 
@@ -1008,7 +1021,7 @@ export default function HeroAboutExperience() {
     }
 
     const diff = Math.abs(target - currentScreenRef.current);
-    const animDuration = diff > 1 ? 0.95 : 0.72;
+    const animDuration = durationOverride ?? (diff > 1 ? 0.95 : 0.72);
 
     gsap.killTweensOf(progressProxy.current);
     gsap.to(progressProxy.current, {
@@ -1058,6 +1071,113 @@ export default function HeroAboutExperience() {
     },
     [goToScreen, enterBrands, enterSpaces, exitSpaces]
   );
+
+  // ── Screen 6 (Contact): reached through the AV NIRVANA band cover transition ──
+  const waitFor = (cond: () => boolean, maxFrames = 120) =>
+    new Promise<void>((resolve) => {
+      let n = 0;
+      const tick = () => {
+        if (cond() || ++n > maxFrames) resolve();
+        else requestAnimationFrame(tick);
+      };
+      tick();
+    });
+
+  const enterContact = useCallback(async () => {
+    const band = bandRef.current;
+    if (!band || brandsTransitioningRef.current || animatingRef.current || exitCommittedRef.current) return;
+    if (currentScreenRef.current >= 5) return;
+    brandsTransitioningRef.current = true;
+    if (exitDecayTimer.current) clearTimeout(exitDecayTimer.current);
+
+    await band.cover();
+
+    if (currentScreenRef.current < 4) {
+      // Arriving from the nav: stack Products → Brands → Domains instantly under the cover,
+      // so scrolling back up from Contact unwinds through the screens as usual
+      gsap.killTweensOf(explodeProxy.current);
+      explodeProxy.current.value = 1;
+      setParticleExplode(1);
+      if (currentScreenRef.current !== 2) {
+        goToScreen(2, 0.01);
+        await waitFor(() => currentScreenRef.current === 2);
+      }
+      setOverlayInstant(true);
+      setBrandsActive(true);
+      setSpacesActive(true);
+      await waitFor(() => currentScreenRef.current === 4);
+      setOverlayInstant(false);
+    }
+
+    brandsTransitioningRef.current = true;
+    currentScreenRef.current = 5;
+    setCurrentScreen(5);
+    setContactActive(true);
+
+    await band.reveal();
+    overlayEnteredAt.current = Date.now();
+    brandsTransitioningRef.current = false;
+  }, [goToScreen]);
+
+  const exitContact = useCallback(async () => {
+    const band = bandRef.current;
+    if (!band || brandsTransitioningRef.current || currentScreenRef.current !== 5) return;
+    brandsTransitioningRef.current = true;
+
+    await band.cover();
+    setContactActive(false);
+    currentScreenRef.current = 4;
+    setCurrentScreen(4);
+
+    await band.reveal();
+    overlayEnteredAt.current = Date.now();
+    brandsTransitioningRef.current = false;
+  }, []);
+
+  /** Nav link pressed on the Contact screen: cover, unwind the stage to the target, reveal */
+  const navFromContact = useCallback(
+    async (target: number) => {
+      const band = bandRef.current;
+      if (!band || brandsTransitioningRef.current || currentScreenRef.current !== 5 || target >= 5) return;
+      brandsTransitioningRef.current = true;
+
+      await band.cover();
+      setContactActive(false);
+
+      if (target >= 4) {
+        currentScreenRef.current = 4;
+        setCurrentScreen(4);
+      } else {
+        const settled = target <= 2 ? 2 : 3;
+        setOverlayInstant(true);
+        setSpacesActive(false);
+        if (target <= 2) setBrandsActive(false);
+        await waitFor(() => currentScreenRef.current === settled);
+        setOverlayInstant(false);
+      }
+
+      if (target <= 2) {
+        // Particles reassemble and the exit gauge resets while still hidden
+        gsap.killTweensOf(explodeProxy.current);
+        explodeProxy.current.value = 0;
+        setParticleExplode(0);
+        exitCommittedRef.current = false;
+        tweenExitFill(0, 0.01);
+        if (target < 2) {
+          goToScreen(target, 0.01);
+          await waitFor(() => currentScreenRef.current === target);
+        }
+      }
+
+      brandsTransitioningRef.current = true;
+      await band.reveal();
+      overlayEnteredAt.current = Date.now();
+      brandsTransitioningRef.current = false;
+    },
+    [goToScreen, tweenExitFill]
+  );
+
+  contactApiRef.current = { enter: enterContact, exit: exitContact };
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -1182,7 +1302,15 @@ export default function HeroAboutExperience() {
     }, viewport);
 
     // Hijack mouse wheel: any scroll triggers full instant transition between screens
+    const contactScroller = () => document.querySelector<HTMLElement>("[data-contact-scroll]");
+
     const handleWheel = (e: WheelEvent) => {
+      if (currentScreenRef.current === 5 && !brandsTransitioningRef.current) {
+        const sc = contactScroller();
+        const canScroll =
+          sc && (e.deltaY > 0 ? sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1 : sc.scrollTop > 0);
+        if (canScroll) return; // let the contact page scroll natively
+      }
       e.preventDefault();
       if (Math.abs(e.deltaY) < 3) return;
 
@@ -1291,6 +1419,10 @@ export default function HeroAboutExperience() {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      if (currentScreenRef.current === 5) {
+        const sc = contactScroller();
+        if (sc && sc.scrollHeight > sc.clientHeight + 1) return; // native scroll on Contact
+      }
       if (currentScreenRef.current === 2) {
         triggerVibrateAndShake();
       }
@@ -1308,6 +1440,8 @@ export default function HeroAboutExperience() {
 
       if (Math.abs(diffY) > 25 && Math.abs(diffY) > Math.abs(diffX)) {
         if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) {
+          // On Contact, only leave upward once the page is scrolled back to its top
+          if (currentScreenRef.current === 5 && (diffY > 0 || (contactScroller()?.scrollTop ?? 0) > 0)) return;
           navigateOverlay(diffY > 0 ? 1 : -1);
           return;
         }
@@ -1487,24 +1621,29 @@ export default function HeroAboutExperience() {
     const handleAnchorClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("a");
       if (!target) return;
-      if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) return;
-      const href = target.getAttribute("href");
-      if (href === "#speaker" || href === "#products") {
-        e.preventDefault();
-        goToScreen(2);
-      } else if (href === "#about") {
-        e.preventDefault();
-        goToScreen(1);
-      } else if (href === "#brands") {
-        e.preventDefault();
-        jumpToOverlay(3);
-      } else if (href === "#domains") {
-        e.preventDefault();
-        jumpToOverlay(4);
-      } else if (href === "#" || href === "#home") {
-        e.preventDefault();
-        goToScreen(0);
+      const href = target.getAttribute("href") ?? "";
+      const routes: Record<string, number> = {
+        "#": 0,
+        "#home": 0,
+        "#about": 1,
+        "#products": 2,
+        "#speaker": 2,
+        "#brands": 3,
+        "#domains": 4,
+        "#contact": 5,
+      };
+      if (!(href in routes)) return;
+      e.preventDefault();
+      const dest = routes[href];
+
+      if (currentScreenRef.current === 5) {
+        if (dest !== 5) navFromContact(dest);
+        return;
       }
+      if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) return;
+      if (dest === 5) enterContact();
+      else if (dest >= 3) jumpToOverlay(dest as 3 | 4);
+      else goToScreen(dest);
     };
 
     window.addEventListener("wheel", handleWheel, { passive: false });
@@ -1523,7 +1662,7 @@ export default function HeroAboutExperience() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("click", handleAnchorClick);
     };
-  }, [goToScreen, advanceExitFill, resetExitFill, navigateOverlay, jumpToOverlay]);
+  }, [goToScreen, advanceExitFill, resetExitFill, navigateOverlay, jumpToOverlay, enterContact, navFromContact]);
 
   const activeProduct = PRODUCTS[currentProductIndex] || PRODUCTS[0];
 
@@ -1937,10 +2076,18 @@ export default function HeroAboutExperience() {
         <BrandsScreen
           active={brandsActive}
           covered={spacesActive}
+          instant={overlayInstant}
           onEntered={handleBrandsEntered}
           onExited={handleBrandsExited}
         />
-        <SpacesScreen active={spacesActive} onEntered={handleSpacesEntered} onExited={handleSpacesExited} />
+        <SpacesScreen
+          active={spacesActive}
+          instant={overlayInstant}
+          onEntered={handleSpacesEntered}
+          onExited={handleSpacesExited}
+        />
+        <ContactScreen active={contactActive} />
+        <BandTransition ref={bandRef} />
       </div>
   );
 }

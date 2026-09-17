@@ -40,11 +40,13 @@ function relOffset(i: number, active: number) {
 
 interface SpacesScreenProps {
   active: boolean;
+  /** Jump straight to the end state (used while a full-screen cover transition hides the change) */
+  instant?: boolean;
   onEntered?: () => void;
   onExited?: () => void;
 }
 
-export default function SpacesScreen({ active, onEntered, onExited }: SpacesScreenProps) {
+export default function SpacesScreen({ active, instant = false, onEntered, onExited }: SpacesScreenProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stripsRef = useRef<(HTMLDivElement | null)[]>([]);
   const eyebrowRef = useRef<HTMLDivElement>(null);
@@ -206,6 +208,7 @@ export default function SpacesScreen({ active, onEntered, onExited }: SpacesScre
         .set(titleWords, { yPercent: 115, rotate: 4 })
         .call(() => cbRef.current.onExited?.());
     }
+    if (instant) tl.progress(1);
   }, [active, cardProps]);
 
   // Keep carousel positions correct on resize

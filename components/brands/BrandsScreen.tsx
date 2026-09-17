@@ -39,11 +39,13 @@ interface BrandsScreenProps {
   active: boolean;
   /** Another screen is sweeping over this one: dissolve the content away */
   covered?: boolean;
+  /** Jump straight to the end state (used while a full-screen cover transition hides the change) */
+  instant?: boolean;
   onEntered?: () => void;
   onExited?: () => void;
 }
 
-export default function BrandsScreen({ active, covered = false, onEntered, onExited }: BrandsScreenProps) {
+export default function BrandsScreen({ active, covered = false, instant = false, onEntered, onExited }: BrandsScreenProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stripsRef = useRef<(HTMLDivElement | null)[]>([]);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -124,6 +126,7 @@ export default function BrandsScreen({ active, covered = false, onEntered, onExi
         .set(root, { visibility: "hidden", pointerEvents: "none" })
         .call(() => cbRef.current.onExited?.());
     }
+    if (instant) tl.progress(1);
   }, [active]);
 
   // Content dissolves left → right in sync with the next screen's strip sweep
