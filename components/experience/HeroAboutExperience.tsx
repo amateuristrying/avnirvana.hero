@@ -8,11 +8,19 @@ import Navbar from "@/components/hero/Navbar";
 import ScrollIndicator from "@/components/hero/ScrollIndicator";
 import AboutBackground from "@/components/about/AboutBackground";
 import AboutContentBlock from "@/components/about/AboutContentBlock";
+import BrandsScreen from "@/components/brands/BrandsScreen";
+import SpacesScreen from "@/components/spaces/SpacesScreen";
 import UnifiedParticleFlow from "./UnifiedParticleFlow";
 
 const SCREEN2_LOGO_SCALE = 1.34;
 const SCREEN2_PARTICLE_SCALE = 1.66;
 const HERO_PARTICLE_SCALE = 1.9;
+
+// Hero text block offset & scale (dialled in with the tuning sliders)
+const HERO_TEXT = { x: 164, y: -18, scale: 1.03 };
+
+// Experiment: use the Screen 2 ferrofluid background on the Hero too (false = original filament artwork)
+const HERO_USE_FERROFLUID = true;
 const SCREEN3_WAVE_ARC_LENGTH = 0.85;
 const SCREEN3_WAVE_DENSITY = 0.8;
 
@@ -424,6 +432,25 @@ export default function HeroAboutExperience() {
   const revealedSpecsRef = useRef(0);
   const lastScrollStepTime = useRef(0);
 
+  // Screen 3 → Screen 4 (Brands) exit gauge: the arrow ball fills as the user keeps scrolling
+  const exitFillElRef = useRef<HTMLDivElement>(null);
+  const exitRingRef = useRef<SVGCircleElement>(null);
+  const exitBallRef = useRef<HTMLDivElement>(null);
+  // Set the moment the gauge is full: locks input so extra scroll events can't delay the transition
+  const exitCommittedRef = useRef(false);
+  // Nav jump straight to Domains: Brands sweeps in underneath, Spaces follows on top
+  const pendingDomainsRef = useRef(false);
+  const exitFillProxy = useRef({ value: 0 });
+  const exitFillTarget = useRef(0);
+  const exitDecayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const brandsTransitioningRef = useRef(false);
+  const [particleExplode, setParticleExplode] = useState(0);
+  const explodeProxy = useRef({ value: 0 });
+  const [brandsActive, setBrandsActive] = useState(false);
+  const [spacesActive, setSpacesActive] = useState(false);
+  // Guards against trackpad inertia skipping straight through overlay screens
+  const overlayEnteredAt = useRef(0);
+
   // Screen 2 progressive text reveal state (left first, then right on scroll)
   const [screen2RightRevealed, setScreen2RightRevealed] = useState(false);
   const screen2RightRevealedRef = useRef(false);
@@ -750,12 +777,190 @@ export default function HeroAboutExperience() {
     }
   }, [revealedSpecs]);
 
+  const applyExitFill = useCallback((v: number) => {
+    if (exitFillElRef.current) exitFillElRef.current.style.transform = `scaleY(${v})`;
+    if (exitRingRef.current) exitRingRef.current.style.strokeDashoffset = String(100 - v * 100);
+    // Particles start to tremble apart while the gauge fills
+    if (!brandsTransitioningRef.current) {
+      explodeProxy.current.value = Math.pow(v, 1.6) * 0.32;
+      setParticleExplode(explodeProxy.current.value);
+    }
+  }, []);
+
+  const tweenExitFill = useCallback(
+    (to: number, duration: number, onComplete?: () => void) => {
+      exitFillTarget.current = to;
+      gsap.killTweensOf(exitFillProxy.current);
+      gsap.to(exitFillProxy.current, {
+        value: to,
+        duration,
+        ease: "power2.out",
+        onUpdate: () => applyExitFill(exitFillProxy.current.value),
+        onComplete,
+      });
+    },
+    [applyExitFill]
+  );
+
+  const resetExitFill = useCallback(() => {
+    if (brandsTransitioningRef.current || exitCommittedRef.current) return;
+    if (exitDecayTimer.current) clearTimeout(exitDecayTimer.current);
+    if (exitFillTarget.current > 0) tweenExitFill(0, 0.45);
+  }, [tweenExitFill]);
+
+  const enterBrands = useCallback(() => {
+    if (brandsTransitioningRef.current) return;
+    brandsTransitioningRef.current = true;
+    if (exitDecayTimer.current) clearTimeout(exitDecayTimer.current);
+    triggerVibrateAndShake();
+
+    // Particles burst outward and vanish as the white strips sweep in
+    gsap.killTweensOf(explodeProxy.current);
+    gsap.to(explodeProxy.current, {
+      value: 1,
+      duration: 0.8,
+      ease: "power3.out",
+      onUpdate: () => setParticleExplode(explodeProxy.current.value),
+    });
+    setBrandsActive(true);
+  }, [triggerVibrateAndShake]);
+
+  const handleBrandsEntered = useCallback(() => {
+    if (currentScreenRef.current !== 4) {
+      currentScreenRef.current = 3;
+      setCurrentScreen(3);
+    }
+    overlayEnteredAt.current = Date.now();
+    // Stay locked while a nav jump to Domains is still sweeping in
+    if (!pendingDomainsRef.current) brandsTransitioningRef.current = false;
+  }, []);
+
+  // Screen 4 (Brands) → Screen 5 (Spaces carousel)
+  const enterSpaces = useCallback(() => {
+    if (brandsTransitioningRef.current || currentScreenRef.current !== 3) return;
+    brandsTransitioningRef.current = true;
+    setSpacesActive(true);
+  }, []);
+
+  const handleSpacesEntered = useCallback(() => {
+    pendingDomainsRef.current = false;
+    currentScreenRef.current = 4;
+    setCurrentScreen(4);
+    overlayEnteredAt.current = Date.now();
+    brandsTransitioningRef.current = false;
+  }, []);
+
+  const exitSpaces = useCallback(() => {
+    if (brandsTransitioningRef.current || currentScreenRef.current !== 4) return;
+    brandsTransitioningRef.current = true;
+    setSpacesActive(false);
+  }, []);
+
+  const handleSpacesExited = useCallback(() => {
+    currentScreenRef.current = 3;
+    setCurrentScreen(3);
+    overlayEnteredAt.current = Date.now();
+    brandsTransitioningRef.current = false;
+  }, []);
+
+  /** Vertical navigation while on the full-screen overlay screens (Brands / Spaces) */
+  const navigateOverlay = useCallback(
+    (dir: 1 | -1) => {
+      if (brandsTransitioningRef.current) return;
+      if (Date.now() - overlayEnteredAt.current < 650) return;
+      if (currentScreenRef.current === 3) {
+        if (dir > 0) enterSpaces();
+        else exitBrands();
+      } else if (currentScreenRef.current === 4 && dir < 0) {
+        exitSpaces();
+      }
+    },
+    [enterSpaces, exitSpaces]
+  );
+
+  const exitBrands = useCallback(() => {
+    if (brandsTransitioningRef.current || currentScreenRef.current !== 3) return;
+    brandsTransitioningRef.current = true;
+    setBrandsActive(false);
+  }, []);
+
+  const handleBrandsExited = useCallback(() => {
+    exitCommittedRef.current = false;
+    currentScreenRef.current = 2;
+    setCurrentScreen(2);
+    // Reassemble the particles and drain the gauge
+    tweenExitFill(0, 0.6);
+    gsap.killTweensOf(explodeProxy.current);
+    gsap.to(explodeProxy.current, {
+      value: 0,
+      duration: 1.1,
+      ease: "power3.out",
+      onUpdate: () => setParticleExplode(explodeProxy.current.value),
+      onComplete: () => {
+        brandsTransitioningRef.current = false;
+      },
+    });
+  }, [tweenExitFill]);
+
+  const advanceExitFill = useCallback(
+    (amount: number) => {
+      if (brandsTransitioningRef.current || exitCommittedRef.current || revealedSpecsRef.current < 4) return;
+      triggerVibrateAndShake();
+      const next = Math.min(1, exitFillTarget.current + amount);
+      if (exitDecayTimer.current) clearTimeout(exitDecayTimer.current);
+      if (next >= 1) {
+        exitCommittedRef.current = true;
+        tweenExitFill(1, 0.18, () => {
+          // Full: the ball shakes on its own for 0.2s, then the transition hits
+          const ball = exitBallRef.current;
+          if (!ball) {
+            enterBrands();
+            return;
+          }
+          const prevTransition = ball.style.transition;
+          ball.style.transition = "none"; // CSS transform transition would smear the jitter
+          gsap.killTweensOf(ball);
+          gsap
+            .timeline({
+              onComplete: () => {
+                gsap.set(ball, { clearProps: "transform" }); // hand transform back to the CSS hover nudge
+                ball.style.transition = prevTransition;
+                enterBrands();
+              },
+            })
+            .to(ball, { scale: 1.14, duration: 0.2, ease: "power2.out" }, 0)
+            .to(
+              ball,
+              {
+                x: "random(-3.5, 3.5)",
+                y: "random(-2.5, 2.5)",
+                rotation: "random(-10, 10)",
+                duration: 0.025,
+                repeat: 7,
+                repeatRefresh: true,
+                ease: "none",
+              },
+              0
+            );
+        });
+        return;
+      }
+      tweenExitFill(next, 0.45);
+      // Stop scrolling and the gauge slowly drains back
+      exitDecayTimer.current = setTimeout(() => {
+        if (!brandsTransitioningRef.current) tweenExitFill(0, 0.9);
+      }, 850);
+    },
+    [triggerVibrateAndShake, tweenExitFill, enterBrands]
+  );
+
   const goToScreen = useCallback((target: number) => {
     if (animatingRef.current || target === currentScreenRef.current) return;
     animatingRef.current = true;
 
     // Reset spec items when navigating away from Screen 3
     if (target < 2) {
+      resetExitFill();
       revealedSpecsRef.current = 0;
       setRevealedSpecs(0);
       const specEls = [spec1Ref.current, spec2Ref.current, spec3Ref.current, spec4Ref.current, specCtaRef.current];
@@ -774,16 +979,10 @@ export default function HeroAboutExperience() {
       animateLeftText(true);
 
       if (currentScreenRef.current === 0) {
-        // Arriving from Screen 1 (Hero): right text stays hidden until further scroll
-        screen2RightRevealedRef.current = false;
-        setScreen2RightRevealed(false);
-        const rightEls = [rightBlock1Ref.current, rightBlock2Ref.current];
-        rightEls.forEach((el) => {
-          if (el) {
-            gsap.killTweensOf(el);
-            gsap.set(el, { opacity: 0, x: 32, y: 18, scale: 0.94, pointerEvents: "none" });
-          }
-        });
+        // Arriving from Screen 1 (Hero): both side columns animate in together, mirrored
+        screen2RightRevealedRef.current = true;
+        setScreen2RightRevealed(true);
+        gsap.delayedCall(0.16, () => animateRightText(true));
       } else if (currentScreenRef.current === 2) {
         // Returning from Screen 3: right text remains visible
         screen2RightRevealedRef.current = true;
@@ -834,6 +1033,32 @@ export default function HeroAboutExperience() {
     });
   }, [animateLeftText, animateRightText]);
 
+  /** Nav jump to the full-screen overlays: 3 = Brands, 4 = Domains */
+  const jumpToOverlay = useCallback(
+    (target: 3 | 4) => {
+      if (animatingRef.current || brandsTransitioningRef.current || exitCommittedRef.current) return;
+      const cur = currentScreenRef.current;
+      if (cur === 4) {
+        if (target === 3) exitSpaces();
+        return;
+      }
+      if (cur === 3) {
+        if (target === 4) enterSpaces();
+        return;
+      }
+      // From Hero / About / Products: glide the stage to Products under cover of the strips,
+      // so scrolling back up from the overlay lands on the product showcase as usual
+      if (exitDecayTimer.current) clearTimeout(exitDecayTimer.current);
+      goToScreen(2);
+      enterBrands();
+      if (target === 4) {
+        pendingDomainsRef.current = true;
+        gsap.delayedCall(0.35, () => setSpacesActive(true));
+      }
+    },
+    [goToScreen, enterBrands, enterSpaces, exitSpaces]
+  );
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -858,7 +1083,7 @@ export default function HeroAboutExperience() {
       }
 
       // 2. Background crossfade: Hero filament -> About Ferrofluid
-      if (heroBgRef.current && aboutBgRef.current) {
+      if (!HERO_USE_FERROFLUID && heroBgRef.current && aboutBgRef.current) {
         tl.to(
           heroBgRef.current,
           {
@@ -961,12 +1186,23 @@ export default function HeroAboutExperience() {
       e.preventDefault();
       if (Math.abs(e.deltaY) < 3) return;
 
+      // On Screen 4 (Brands): scroll up returns to the product showcase
+      if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) {
+        if (Math.abs(e.deltaY) > 8) navigateOverlay(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
+
       // On Screen 3: step through the 4 feature spec points one by one
       if (currentScreenRef.current === 2) {
         const now = Date.now();
         if (e.deltaY > 0) {
           // Scroll down
           triggerVibrateAndShake();
+          if (revealedSpecsRef.current >= 4) {
+            // All specs shown: fill the arrow ball gauge
+            advanceExitFill(Math.min(0.085, Math.max(0.012, Math.abs(e.deltaY) / 1200)));
+            return;
+          }
           if (revealedSpecsRef.current < 4) {
             if (now - lastScrollStepTime.current > 240) {
               lastScrollStepTime.current = now;
@@ -979,6 +1215,10 @@ export default function HeroAboutExperience() {
           return;
         } else if (e.deltaY < 0) {
           // Scroll up
+          if (exitFillTarget.current > 0) {
+            resetExitFill();
+            return;
+          }
           if (revealedSpecsRef.current > 0) {
             triggerVibrateAndShake();
             if (now - lastScrollStepTime.current > 240) {
@@ -1001,7 +1241,7 @@ export default function HeroAboutExperience() {
 
       if (animatingRef.current) return;
 
-      // On Screen 2: progressive reveal of right text before moving to Screen 3
+      // On Screen 2: both columns are already revealed on entry, scroll moves between screens
       if (currentScreenRef.current === 1) {
         const now = Date.now();
         if (e.deltaY > 0) {
@@ -1025,22 +1265,12 @@ export default function HeroAboutExperience() {
           }
         } else if (e.deltaY < 0) {
           // Scroll up
-          if (screen2RightRevealedRef.current) {
-            if (now - lastScrollStepTime.current > 240) {
-              lastScrollStepTime.current = now;
-              screen2RightRevealedRef.current = false;
-              setScreen2RightRevealed(false);
-              animateRightText(false);
-            }
-            return;
-          } else {
-            // Right text not revealed: return to Screen 0 (Hero)
-            if (now - lastScrollStepTime.current > 280) {
-              lastScrollStepTime.current = now;
-              goToScreen(0);
-            }
-            return;
+          // Return to Screen 0 (Hero)
+          if (now - lastScrollStepTime.current > 280) {
+            lastScrollStepTime.current = now;
+            goToScreen(0);
           }
+          return;
         }
       }
 
@@ -1077,11 +1307,19 @@ export default function HeroAboutExperience() {
       const diffX = touchStartX - touchEndX;
 
       if (Math.abs(diffY) > 25 && Math.abs(diffY) > Math.abs(diffX)) {
+        if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) {
+          navigateOverlay(diffY > 0 ? 1 : -1);
+          return;
+        }
         if (currentScreenRef.current === 2) {
           const now = Date.now();
           if (diffY > 0) {
             // Swipe up (scroll down)
             triggerVibrateAndShake();
+            if (revealedSpecsRef.current >= 4) {
+              advanceExitFill(Math.min(0.32, Math.max(0.14, diffY / 900)));
+              return;
+            }
             if (revealedSpecsRef.current < 4) {
               if (now - lastScrollStepTime.current > 200) {
                 lastScrollStepTime.current = now;
@@ -1095,6 +1333,10 @@ export default function HeroAboutExperience() {
             return;
           } else if (diffY < 0) {
             // Swipe down (scroll up)
+            if (exitFillTarget.current > 0) {
+              resetExitFill();
+              return;
+            }
             if (revealedSpecsRef.current > 0) {
               triggerVibrateAndShake();
               if (now - lastScrollStepTime.current > 200) {
@@ -1135,21 +1377,11 @@ export default function HeroAboutExperience() {
             }
           } else if (diffY < 0) {
             // Swipe down (scroll up)
-            if (screen2RightRevealedRef.current) {
-              if (now - lastScrollStepTime.current > 200) {
-                lastScrollStepTime.current = now;
-                screen2RightRevealedRef.current = false;
-                setScreen2RightRevealed(false);
-                animateRightText(false);
-              }
-              return;
-            } else {
-              if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
-                lastScrollStepTime.current = now;
-                goToScreen(0);
-              }
-              return;
+            if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+              lastScrollStepTime.current = now;
+              goToScreen(0);
             }
+            return;
           }
         }
 
@@ -1161,11 +1393,21 @@ export default function HeroAboutExperience() {
 
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) {
+        if (["ArrowDown", "PageDown", " ", "ArrowUp", "PageUp"].includes(e.key)) e.preventDefault();
+        if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) navigateOverlay(-1);
+        else if (["ArrowDown", "PageDown", " "].includes(e.key)) navigateOverlay(1);
+        return;
+      }
       if (currentScreenRef.current === 2) {
         const now = Date.now();
         if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.shiftKey) {
           e.preventDefault();
           triggerVibrateAndShake();
+          if (revealedSpecsRef.current >= 4) {
+            advanceExitFill(0.16);
+            return;
+          }
           if (revealedSpecsRef.current < 4) {
             if (now - lastScrollStepTime.current > 200) {
               lastScrollStepTime.current = now;
@@ -1178,6 +1420,10 @@ export default function HeroAboutExperience() {
           return;
         } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
           e.preventDefault();
+          if (exitFillTarget.current > 0) {
+            resetExitFill();
+            return;
+          }
           if (revealedSpecsRef.current > 0) {
             triggerVibrateAndShake();
             if (now - lastScrollStepTime.current > 200) {
@@ -1220,21 +1466,11 @@ export default function HeroAboutExperience() {
           }
         } else if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) {
           e.preventDefault();
-          if (screen2RightRevealedRef.current) {
-            if (now - lastScrollStepTime.current > 200) {
-              lastScrollStepTime.current = now;
-              screen2RightRevealedRef.current = false;
-              setScreen2RightRevealed(false);
-              animateRightText(false);
-            }
-            return;
-          } else {
-            if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
-              lastScrollStepTime.current = now;
-              goToScreen(0);
-            }
-            return;
+          if (!animatingRef.current && now - lastScrollStepTime.current > 260) {
+            lastScrollStepTime.current = now;
+            goToScreen(0);
           }
+          return;
         }
       }
 
@@ -1251,6 +1487,7 @@ export default function HeroAboutExperience() {
     const handleAnchorClick = (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest("a");
       if (!target) return;
+      if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) return;
       const href = target.getAttribute("href");
       if (href === "#speaker" || href === "#products") {
         e.preventDefault();
@@ -1258,6 +1495,12 @@ export default function HeroAboutExperience() {
       } else if (href === "#about") {
         e.preventDefault();
         goToScreen(1);
+      } else if (href === "#brands") {
+        e.preventDefault();
+        jumpToOverlay(3);
+      } else if (href === "#domains") {
+        e.preventDefault();
+        jumpToOverlay(4);
       } else if (href === "#" || href === "#home") {
         e.preventDefault();
         goToScreen(0);
@@ -1280,7 +1523,7 @@ export default function HeroAboutExperience() {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("click", handleAnchorClick);
     };
-  }, [goToScreen]);
+  }, [goToScreen, advanceExitFill, resetExitFill, navigateOverlay, jumpToOverlay]);
 
   const activeProduct = PRODUCTS[currentProductIndex] || PRODUCTS[0];
 
@@ -1290,16 +1533,20 @@ export default function HeroAboutExperience() {
       className="relative h-svh w-full overflow-hidden bg-[#120a1e]"
     >
         {/* Background 1: Hero Filament loop artwork */}
-        <div ref={heroBgRef} className="absolute inset-0 z-0">
-          <HeroBackground active={currentScreen === 0 || scrollProgress < 0.6} />
-        </div>
+        {!HERO_USE_FERROFLUID && (
+          <div ref={heroBgRef} className="absolute inset-0 z-0">
+            <HeroBackground active={currentScreen === 0 || scrollProgress < 0.6} />
+          </div>
+        )}
 
         {/* Background 2: About Ferrofluid artwork */}
-        <div ref={aboutBgRef} className="absolute inset-0 z-0 opacity-0">
+        <div ref={aboutBgRef} className={`absolute inset-0 z-0 ${HERO_USE_FERROFLUID ? "" : "opacity-0"}`}>
           <AboutBackground
-            active={currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4}
+            active={HERO_USE_FERROFLUID ? currentScreen <= 2 : currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4}
             theme={
-              currentProductIndex === 3
+              HERO_USE_FERROFLUID && scrollProgress < 0.5
+                ? "aqua"
+                : currentProductIndex === 3
                 ? "light-blue"
                 : currentProductIndex === 2
                 ? "blue"
@@ -1318,6 +1565,7 @@ export default function HeroAboutExperience() {
         <div ref={particleCanvasWrapRef} className="absolute inset-0 z-10 pointer-events-none">
           <UnifiedParticleFlow
             progress={scrollProgress}
+            explode={particleExplode}
             productIndex={currentProductIndex}
             logoScale={SCREEN2_LOGO_SCALE}
             particleScale={SCREEN2_PARTICLE_SCALE}
@@ -1349,7 +1597,14 @@ export default function HeroAboutExperience() {
 
               {/* Right column: Typography & CTA */}
               <div className="pointer-events-auto lg:translate-x-[max(-18.2vw,-262px)] lg:translate-y-[24px]">
-                <HeroContent />
+                <div
+                  style={{
+                    transform: `translate3d(${HERO_TEXT.x}px, ${HERO_TEXT.y}px, 0) scale(${HERO_TEXT.scale})`,
+                    transformOrigin: "left center",
+                  }}
+                >
+                  <HeroContent />
+                </div>
               </div>
             </div>
           </div>
@@ -1631,8 +1886,29 @@ export default function HeroAboutExperience() {
                 href={activeProduct.ctaHref}
                 className="group flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300 hover:opacity-85"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/5 text-fg-mute backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0.5">
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <div ref={exitBallRef} className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white/5 text-white backdrop-blur-sm transition-transform duration-300 group-hover:translate-y-0.5">
+                  {/* White liquid fill rising from the bottom as the user scrolls */}
+                  <div
+                    ref={exitFillElRef}
+                    className="absolute inset-0 origin-bottom bg-white will-change-transform"
+                    style={{ transform: "scaleY(0)" }}
+                  />
+                  {/* Progress ring */}
+                  <svg className="pointer-events-none absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36">
+                    <circle
+                      ref={exitRingRef}
+                      cx="18"
+                      cy="18"
+                      r="17"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="1.5"
+                      pathLength={100}
+                      strokeDasharray="100"
+                      style={{ strokeDashoffset: 100 }}
+                    />
+                  </svg>
+                  <svg className="relative h-4 w-4 mix-blend-difference" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </div>
@@ -1657,6 +1933,14 @@ export default function HeroAboutExperience() {
             </div>
           </div>
         </div>
+
+        <BrandsScreen
+          active={brandsActive}
+          covered={spacesActive}
+          onEntered={handleBrandsEntered}
+          onExited={handleBrandsExited}
+        />
+        <SpacesScreen active={spacesActive} onEntered={handleSpacesEntered} onExited={handleSpacesExited} />
       </div>
   );
 }

@@ -376,6 +376,8 @@ interface UnifiedParticleFlowProps {
   p4ParticleDensity?: number;
   p4FlowThickness?: number;
   p4FlowSpeed?: number;
+  /** 0 = intact, 1 = fully blasted off-screen and faded (Screen 3 → Brands exit) */
+  explode?: number;
   className?: string;
 }
 
@@ -393,6 +395,7 @@ export default function UnifiedParticleFlow({
   p4ParticleDensity = 3.0,
   p4FlowThickness = 4.2,
   p4FlowSpeed = 0.1,
+  explode = 0,
   className = "",
 }: UnifiedParticleFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -402,6 +405,9 @@ export default function UnifiedParticleFlow({
   // Keep references to dynamic values without tearing down WebGL/Canvas state
   const progressRef = useRef(progress);
   progressRef.current = progress;
+
+  const explodeRef = useRef(explode);
+  explodeRef.current = explode;
 
   const productIndexRef = useRef(productIndex);
   productIndexRef.current = productIndex;
@@ -928,6 +934,15 @@ export default function UnifiedParticleFlow({
       const prodIdx = productIndexRef.current;
       const isDesktop = width >= 1024;
 
+      // Explosion: particles blast radially outward from screen center and fade
+      const ex = clamp(explodeRef.current, 0, 1);
+      if (ex >= 0.995) return;
+      const exEase = ex * ex * (3 - 2 * ex);
+      const exCx = width * 0.5;
+      const exCy = height * 0.5;
+      const exReach = Math.hypot(width, height) * 0.9;
+      ctx.globalAlpha = 1 - exEase;
+
       for (let t = 0; t < HERO_TIERS.length; t++) {
         const start = field.tierStart[t];
         const len = field.tierLen[t];
@@ -999,15 +1014,27 @@ export default function UnifiedParticleFlow({
               size = currentSize * bandSizeMult;
             }
           }
+          let ox = 0;
+          let oy = 0;
+          if (ex > 0) {
+            const ddx = field.x[i] - exCx;
+            const ddy = field.y[i] - exCy;
+            const dist = Math.hypot(ddx, ddy) || 1;
+            // per-particle variance so the blast feels organic, not a uniform zoom
+            const force = exEase * exReach * (0.35 + 0.65 * Math.abs(field.wobAX[i] % 1) + 0.4 * (dist / exReach));
+            ox = (ddx / dist) * force + field.wobBY[i] * exEase * 60;
+            oy = (ddy / dist) * force + field.wobBX[i] * exEase * 60;
+            size *= 1 + exEase * 0.8;
+          }
           const half = size * 0.5;
-          ctx.drawImage(sprite, field.x[i] - half, field.y[i] - half, size, size);
+          ctx.drawImage(sprite, field.x[i] + ox - half, field.y[i] + oy - half, size, size);
 
           // Extra companion micro-sparkles when density > 1.0
           if (p > 1.0 && prodIdx === 2 && p3Density > 1.0 && (i / field.n) < (p3Density - 1.0)) {
             const companionSize = size * 0.76;
             const companionHalf = companionSize * 0.5;
-            const compX = field.x[i] + field.wobBX[i] * 6.5;
-            const compY = field.y[i] + field.wobBY[i] * 6.5;
+            const compX = field.x[i] + ox + field.wobBX[i] * 6.5;
+            const compY = field.y[i] + oy + field.wobBY[i] * 6.5;
             ctx.drawImage(sprite, compX - companionHalf, compY - companionHalf, companionSize, companionSize);
           }
 
@@ -1017,19 +1044,20 @@ export default function UnifiedParticleFlow({
           if (p > 1.0 && prodIdx === 3 && p4CompanionFade > 0.02 && p4Density > 1.0 && (i / field.n) < (p4Density - 1.0)) {
             const companionSize = size * 0.78 * p4CompanionFade;
             const companionHalf = companionSize * 0.5;
-            const compX = field.x[i] + field.wobBX[i] * (4.5 * thickness);
-            const compY = field.y[i] + field.wobBY[i] * (4.5 * thickness);
+            const compX = field.x[i] + ox + field.wobBX[i] * (4.5 * thickness);
+            const compY = field.y[i] + oy + field.wobBY[i] * (4.5 * thickness);
             ctx.drawImage(sprite, compX - companionHalf, compY - companionHalf, companionSize, companionSize);
           }
           if (p > 1.0 && prodIdx === 3 && p4CompanionFade > 0.02 && p4Density > 2.0 && (i / field.n) < (p4Density - 2.0)) {
             const extraSize = size * 0.65 * p4CompanionFade;
             const extraHalf = extraSize * 0.5;
-            const compX = field.x[i] - field.wobAY[i] * (3.8 * thickness);
-            const compY = field.y[i] + field.wobAX[i] * (3.8 * thickness);
+            const compX = field.x[i] + ox - field.wobAY[i] * (3.8 * thickness);
+            const compY = field.y[i] + oy + field.wobAX[i] * (3.8 * thickness);
             ctx.drawImage(sprite, compX - extraHalf, compY - extraHalf, extraSize, extraSize);
           }
         }
       }
+      ctx.globalAlpha = 1;
     };
 
     const frame = (now: number) => {

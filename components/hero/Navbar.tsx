@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import LogoMark from "./LogoMark";
 import { ArrowUpRight } from "./icons";
 
-const LINKS = [
-  { label: "Home", href: "#", active: true },
-  { label: "Brands", href: "#brands" },
-  { label: "Services", href: "#services" },
-  { label: "Events", href: "#events" },
-  { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+// Hash targets are intercepted by HeroAboutExperience and mapped to screens
+const LINKS: { label: string; href: string; active?: boolean }[] = [
+  { label: "About us", href: "#about" }, // Screen 2
+  { label: "Products", href: "#products" }, // Screen 3
+  { label: "Brands", href: "#brands" }, // Screen 4
+  { label: "Domains", href: "#domains" }, // Screen 5
+  { label: "Contact", href: "#contact" }, // TODO: hook up once the contact screen exists
 ];
 
 export default function Navbar() {
@@ -38,17 +38,12 @@ export default function Navbar() {
   return (
     <header
       ref={headerRef}
-      // Tuned offset, desktop only: below `lg` the top padding is 16–20px, so
-      // the same -15px would leave the bar flush against the screen edge (and
-      // under the notch on a phone).
-      className="absolute inset-x-0 top-0 z-40 px-4 pt-4 sm:px-6 sm:pt-5 lg:-translate-y-[15px] lg:px-10 lg:pt-6"
+      className="absolute inset-x-0 top-0 z-40 px-5 pt-4 sm:px-8 sm:pt-5 lg:px-12 lg:pt-6"
     >
       <div className="mx-auto max-w-[1600px]">
-        <nav
-          aria-label="Primary"
-          className="relative rounded-[18px] border border-line bg-canvas/40 shadow-[0_14px_44px_-22px_rgba(0,0,0,0.7)] backdrop-blur-xl backdrop-saturate-150"
-        >
-          <div className="flex h-[58px] items-center gap-4 px-3.5 sm:h-[64px] sm:px-5">
+        {/* No container box: the nav floats directly over the ferrofluid */}
+        <nav aria-label="Primary" className="relative [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">
+          <div className="flex h-[58px] items-center gap-4 sm:h-[64px]">
             {/* Brand */}
             <a
               href="#"
@@ -58,11 +53,12 @@ export default function Navbar() {
               <LogoMark className="h-[26px] w-auto sm:h-[30px]" />
               {/* Divider from the brand lockup. */}
               <span className="h-[26px] w-px shrink-0 bg-line-strong sm:h-[30px]" aria-hidden="true" />
-              <span className="leading-none">
+              <span className="flex flex-col items-center leading-none">
                 <span className="block text-[15px] font-semibold tracking-[0.02em] sm:text-[17px]">
                   AV NIRVANA
                 </span>
-                <span className="mt-[3px] block text-[8px] font-medium tracking-[0.46em] text-brand sm:text-[9px]">
+                {/* pl offsets the trailing letter-spacing so the word sits optically centred */}
+                <span className="mt-[4px] block pl-[0.46em] text-[8px] font-medium tracking-[0.46em] text-brand sm:text-[9px]">
                   INDIA
                 </span>
               </span>
@@ -89,7 +85,7 @@ export default function Navbar() {
             <div className="ml-auto flex items-center gap-2 lg:ml-8 lg:gap-3">
               <a
                 href="#contact"
-                className="group hidden items-center gap-2 rounded-full bg-fg py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-canvas transition-colors duration-300 hover:bg-white sm:inline-flex"
+                className="group hidden items-center gap-2 rounded-full bg-fg py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-canvas shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)] [text-shadow:none] transition-colors duration-300 hover:bg-white sm:inline-flex"
               >
                 Talk to our expert
                 <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -124,16 +120,16 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Menu panel */}
+          {/* Menu panel: floating glass card, since the bar itself no longer has a box */}
           <div
             id="hero-menu"
-            className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            className={`absolute top-full right-0 mt-2 grid w-[min(100%,440px)] overflow-hidden rounded-2xl border border-line bg-canvas/70 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl [text-shadow:none] transition-[grid-template-rows,opacity,visibility] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none invisible grid-rows-[0fr] opacity-0"
             }`}
           >
             <div className="min-h-0">
-              <div className="border-t border-line px-3.5 pb-4 pt-3 sm:px-5">
-                <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="px-3 pb-3 pt-3">
+                <ul className="grid gap-0.5 sm:grid-cols-2">
                   {LINKS.map((link) => (
                     <li key={link.label}>
                       <a
