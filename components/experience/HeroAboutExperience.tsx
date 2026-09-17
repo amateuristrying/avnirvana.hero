@@ -1527,6 +1527,20 @@ export default function HeroAboutExperience() {
 
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Contact: arrow / page keys scroll the page (down to the footer) before leaving the screen
+      if (currentScreenRef.current === 5 && !brandsTransitioningRef.current) {
+        const sc = contactScroller();
+        const down = ["ArrowDown", "PageDown"].includes(e.key) || (e.key === " " && !e.shiftKey);
+        const up = ["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey);
+        if (sc && (down || up)) {
+          const canScroll = down ? sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1 : sc.scrollTop > 0;
+          if (canScroll) {
+            e.preventDefault();
+            sc.scrollBy({ top: (down ? 1 : -1) * sc.clientHeight * 0.8, behavior: "smooth" });
+            return;
+          }
+        }
+      }
       if (currentScreenRef.current >= 3 || brandsTransitioningRef.current) {
         if (["ArrowDown", "PageDown", " ", "ArrowUp", "PageUp"].includes(e.key)) e.preventDefault();
         if (["ArrowUp", "PageUp"].includes(e.key) || (e.key === " " && e.shiftKey)) navigateOverlay(-1);

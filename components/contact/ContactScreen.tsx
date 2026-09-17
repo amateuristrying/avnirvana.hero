@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import Navbar from "@/components/hero/Navbar";
 import Ferrofluid from "@/components/about/Ferrofluid";
+import Footer from "@/components/footer/Footer";
 
 const MAPS_LINK = "https://maps.app.goo.gl/4qd2RCxQY5sjqoZY6";
 const MAP_EMBED =
@@ -286,6 +287,9 @@ export default function ContactScreen({ active, enterDelay = 0.3 }: ContactScree
           </dl>
         </div>
       </div>
+
+      {/* Scroll past the contact section to reach the footer */}
+      <Footer />
     </div>
   );
 }
