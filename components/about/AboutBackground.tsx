@@ -21,7 +21,7 @@ export default function AboutBackground({
     ? ["#c084fc", "#a855f7", "#9333ea", "#7e22ce"]
     : isGreen
     ? ["#22c55e", "#10b981", "#34d399", "#059669"]
-    : ["#ffffff", "#ffffff", "#ffffff"];
+    : ["#2876a6", "#1c4b5c", "#ffffff"];
 
   return (
     <div
@@ -42,16 +42,16 @@ export default function AboutBackground({
         <Ferrofluid
           paused={!active}
           colors={ferrofluidColors}
-          speed={0.5}
-          scale={1}
-          turbulence={1}
+          speed={1.1}
+          scale={0.7}
+          turbulence={1.4}
           fluidity={0.1}
           rimWidth={0.2}
-          sharpness={3}
+          sharpness={2.8}
           shimmer={1}
-          glow={isAqua ? 2.6 : isLightBlue ? 2.7 : isPurple ? 2.6 : isGreen ? 2.5 : 2}
+          glow={2}
           flowDirection="down"
-          opacity={0.85}
+          opacity={1}
           mouseInteraction={true}
           mouseStrength={1}
           mouseRadius={0.3}

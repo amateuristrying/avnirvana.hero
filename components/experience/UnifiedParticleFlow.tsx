@@ -488,8 +488,9 @@ export default function UnifiedParticleFlow({
       canvas.style.height = `${height}px`;
 
       if (!field) {
+        // Tuned density (1.70x the original 800/450 baseline).
         const isDesktop = width >= 1024;
-        const clampedCount = isDesktop ? 800 : 450;
+        const clampedCount = isDesktop ? 1360 : 765;
         field = buildField(clampedCount);
 
         // Initial positions at Hero home

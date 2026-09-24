@@ -839,6 +839,11 @@ export default function HeroAboutExperience() {
       setCurrentScreen(3);
     }
     overlayEnteredAt.current = Date.now();
+    // The exit gauge latch only guards the in-flight Products -> Brands commit.
+    // Release it now that commit has landed: every later forward move
+    // (enterContact, jumpToOverlay) refuses to run while it is still set, which
+    // otherwise left Domains a dead end for anyone who scrolled here.
+    exitCommittedRef.current = false;
     // Stay locked while a nav jump to Domains is still sweeping in
     if (!pendingDomainsRef.current) brandsTransitioningRef.current = false;
   }, []);
@@ -1698,7 +1703,7 @@ export default function HeroAboutExperience() {
             active={HERO_USE_FERROFLUID ? currentScreen <= 2 : currentScreen === 1 || currentScreen === 2 || scrollProgress > 0.4}
             theme={
               HERO_USE_FERROFLUID && scrollProgress < 0.5
-                ? "aqua"
+                ? "blue"
                 : currentProductIndex === 3
                 ? "light-blue"
                 : currentProductIndex === 2
