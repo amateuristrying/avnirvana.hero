@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import Navbar from "@/components/hero/Navbar";
-import Ferrofluid from "@/components/about/Ferrofluid";
+import Prism from "@/components/prism/Prism";
 import Footer from "@/components/footer/Footer";
 
 const MAPS_LINK = "https://maps.app.goo.gl/4qd2RCxQY5sjqoZY6";
@@ -11,9 +11,6 @@ const MAP_EMBED =
   "https://www.google.com/maps?q=" +
   encodeURIComponent("8-C, Laxmi Industrial Estate, Suresh Nagar, Andheri West, Mumbai, Maharashtra 400053") +
   "&z=16&output=embed";
-
-// Light green ferrofluid hue (module-level so the WebGL program isn't rebuilt every render)
-const FERRO_COLORS = ["#bbf7d0", "#86efac", "#a7f3d0", "#4ade80"];
 
 // Contact copy block offset & scale (dialled in with tuning sliders)
 const TEXT_LAYOUT = { x: 20, y: -4, scale: 0.82 };
@@ -150,26 +147,21 @@ export default function ContactScreen({ active, enterDelay = 0.3 }: ContactScree
         .contact-link:hover { background-size: 100% 1px; color: #fff; }
       `}</style>
 
-      {/* Light green ferrofluid background (fixed so it stays put while the page scrolls on mobile) */}
+      {/* Prism background (fixed so it stays put while the page scrolls on mobile) */}
       <div className="pointer-events-none fixed inset-0 bg-[#03110b]">
-        <Ferrofluid
+        <Prism
           paused={!active}
-          colors={FERRO_COLORS}
-          speed={1.1}
-          scale={0.7}
-          turbulence={1.4}
-          fluidity={0.1}
-          rimWidth={0.2}
-          sharpness={2.8}
-          shimmer={1}
-          glow={2.5}
-          flowDirection="down"
-          opacity={1}
-          mouseInteraction={true}
-          mouseStrength={1}
-          mouseRadius={0.3}
+          animationType="hover"
+          timeScale={0.7}
+          height={3.4}
+          baseWidth={5.5}
+          scale={4.2}
+          hueShift={0.35}
+          colorFrequency={0.8}
+          noise={0.5}
+          glow={1}
         />
-        {/* Vignette keeps the copy legible over the fluid */}
+        {/* Vignette keeps the copy legible over the prism */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(3,17,11,0.8)_100%)]" />
       </div>
 

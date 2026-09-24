@@ -1,9 +1,9 @@
-import HeroAboutExperience from "@/components/experience/HeroAboutExperience";
+import PrismHero from "@/components/prism-hero/PrismHero";
 
 export default function Page() {
   return (
     <main>
-      <HeroAboutExperience />
+      <PrismHero />
     </main>
   );
 }
