@@ -17,9 +17,6 @@ interface Domain {
   desc: string;
   /** Card colour. */
   card: string;
-  /** Topology line colour and page tint while this card is open. */
-  line: number;
-  bg: string;
 }
 
 const DOMAINS: Domain[] = [
@@ -29,8 +26,6 @@ const DOMAINS: Domain[] = [
     tag: "Residential",
     desc: "Private cinemas, multi-room audio and seamless automation, crafted around the way you live.",
     card: "#EBE9E4",
-    line: 0xebe9e4,
-    bg: "#171614",
   },
   {
     title: "Auditoriums & Event Spaces",
@@ -38,8 +33,6 @@ const DOMAINS: Domain[] = [
     tag: "Venues",
     desc: "Line arrays, projection and stage control engineered so every seat gets the best experience.",
     card: "#BDB9B8",
-    line: 0xbdb9b8,
-    bg: "#1a1516",
   },
   {
     title: "Retail & Lifestyle Spaces",
@@ -47,8 +40,6 @@ const DOMAINS: Domain[] = [
     tag: "Retail",
     desc: "Curated background music, digital signage and ambience that shape how customers feel.",
     card: "#A5B1A1",
-    line: 0xa5b1a1,
-    bg: "#0f1811",
   },
   {
     title: "Corporate & Commercial Spaces",
@@ -56,8 +47,6 @@ const DOMAINS: Domain[] = [
     tag: "Workplace",
     desc: "Boardrooms, collaboration suites and building-wide AV that keep teams effortlessly connected.",
     card: "#D1C5A1",
-    line: 0xd1c5a1,
-    bg: "#1c170c",
   },
   {
     title: "Hospitality & Leisure",
@@ -65,8 +54,6 @@ const DOMAINS: Domain[] = [
     tag: "Hospitality",
     desc: "Zoned audio, lighting scenes and entertainment systems for hotels, bars, clubs and resorts.",
     card: "#F1F0B2",
-    line: 0xf1f0b2,
-    bg: "#19190a",
   },
   {
     title: "Education & Institutions",
@@ -74,59 +61,21 @@ const DOMAINS: Domain[] = [
     tag: "Education",
     desc: "Smart classrooms, lecture capture and campus-wide AV that elevate the way people learn.",
     card: "#B3AB9E",
-    line: 0xb3ab9e,
-    bg: "#1a140f",
   },
 ];
 
 const N = DOMAINS.length;
 
-/** No card open: the Vanta config as given (color: 0xffffff, backgroundColor: 0x6c5cd9). */
-const REST = { line: 0xffffff, bg: "#6c5cd9" };
-
 /** Spring stiffness for the card widths (rad/s, critically damped). */
 const OMEGA = 10;
-/** How long the background keeps drawing before Domains is opened. */
-const WARM_MS = 4500;
 /** Parallax reach, in px, as the cursor moves over the page. */
 const DRIFT_X = 16;
 const DRIFT_Y = 10;
 
-interface VantaEffect {
-  options: Record<string, unknown>;
-  p5?: {
-    draw?: () => void;
-    loop: () => void;
-    noLoop: () => void;
-    drawingContext?: CanvasRenderingContext2D;
-  };
-  p5canvas?: HTMLCanvasElement;
-  req?: number;
-  resize: () => void;
-  destroy: () => void;
-}
-type VantaFactory = (opts: Record<string, unknown>) => VantaEffect;
-
-let loader: Promise<{ p5: unknown; TOPOLOGY: VantaFactory }> | null = null;
-
-/** Fetch p5 and the Vanta effect ahead of time; they are only needed here. */
-export function preloadDomains() {
-  if (!loader) {
-    loader = Promise.all([import("p5"), import("vanta/dist/vanta.topology.min")]).then(([p5m, vm]) => ({
-      p5: p5m.default ?? p5m,
-      TOPOLOGY: (vm.default ?? vm) as VantaFactory,
-    }));
-    loader.catch(() => {
-      loader = null;
-    });
-  }
-  return loader;
-}
-
 export interface DomainsHandle {
-  /** Back to the entry state: content hidden, every card slim, rest colours. */
+  /** Back to the entry state: content hidden, every card slim. */
   prepare: () => void;
-  /** Resolves once the background is drawing (or after a short cap). */
+  /** Resolves once the screen is mounted and ready to reveal. */
   ready: () => Promise<void>;
   /** Entrance: the title slides up out of its masks and the cards rise in. */
   playIn: () => void;
@@ -141,6 +90,8 @@ interface Geometry {
   big: number;
   /** Card size across the row. */
   cross: number;
+  /** Stage length along the row. */
+  main: number;
 }
 
 function smoothstep(e0: number, e1: number, v: number) {
@@ -149,11 +100,10 @@ function smoothstep(e0: number, e1: number, v: number) {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const toRgb = (n: number) => ({ r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 });
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
-const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean }>(function DomainsScreen(
-  { active, warm },
+const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function DomainsScreen(
+  { active },
   ref,
 ) {
   const reduced = useReducedMotion();
@@ -161,8 +111,6 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
   const [touch, setTouch] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
-  const vantaRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const eyebrowRef = useRef<HTMLDivElement>(null);
@@ -175,8 +123,6 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
   const detailRefs = useRef<(HTMLDivElement | null)[]>([]);
   const dimRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const activeRef = useRef(active);
-  activeRef.current = active;
   const geoRef = useRef<Geometry | null>(null);
   const hoverRef = useRef(-1);
   const sizes = useRef<number[]>(Array(N).fill(0));
@@ -185,175 +131,16 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
   const opens = useRef<number[]>(Array(N).fill(-1));
   const offX = useRef<number[]>(Array(N).fill(0));
   const offY = useRef<number[]>(Array(N).fill(0));
+  /** Slide along the row that keeps an open card on screen (spring state). */
+  const shift = useRef({ x: 0, v: 0, written: 0 });
   const pointer = useRef({ x: 0, y: 0, nx: 0, ny: 0, has: false });
   const leaveTimer = useRef<number | undefined>(undefined);
-  const paletteTimer = useRef<number | undefined>(undefined);
-  const lastCardRef = useRef(-1);
-
-  // --- Background (Vanta TOPOLOGY) -----------------------------------------
-  const effectRef = useRef<VantaEffect | null>(null);
-  const creatingRef = useRef<Promise<void> | null>(null);
-  const genRef = useRef(0);
-  const runWantRef = useRef(false);
-  const pauseTimer = useRef<number | undefined>(undefined);
-  const lineCol = useRef(toRgb(REST.line));
-  const lineTween = useRef<gsap.core.Tween | null>(null);
-
-  const applyRun = useCallback(() => {
-    const p = effectRef.current?.p5;
-    if (!p) return;
-    if (runWantRef.current) p.loop();
-    else p.noLoop();
-  }, []);
-
-  /**
-   * The effect draws its lines onto a transparent canvas and never clears it.
-   * New strokes pick the colour up from `options.color`; strokes already down
-   * are repainted in place (source-atop keeps each pixel's coverage), so the
-   * whole topology changes colour at once instead of over many seconds.
-   */
-  const paintLines = useCallback(() => {
-    const eff = effectRef.current;
-    if (!eff) return;
-    const { r, g, b } = lineCol.current;
-    const R = Math.round(r);
-    const G = Math.round(g);
-    const B = Math.round(b);
-    eff.options.color = (R << 16) | (G << 8) | B;
-    const canvas = eff.p5canvas;
-    const ctx = eff.p5?.drawingContext ?? canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = `rgb(${R},${G},${B})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
-  }, []);
-
-  const destroyVanta = useCallback(() => {
-    genRef.current++;
-    const eff = effectRef.current;
-    effectRef.current = null;
-    try {
-      eff?.destroy();
-    } catch {
-      // Nothing to recover: the host is cleared below either way.
-    }
-    vantaRef.current?.replaceChildren();
-  }, []);
-
-  const createVanta = useCallback((): Promise<void> => {
-    if (reduced || effectRef.current) return Promise.resolve();
-    if (creatingRef.current) return creatingRef.current;
-    const host = vantaRef.current;
-    if (!host) return Promise.resolve();
-    const gen = genRef.current;
-    const job = preloadDomains()
-      .then(({ p5, TOPOLOGY }) => {
-        if (gen !== genRef.current || !host.isConnected) return;
-        const eff = TOPOLOGY({
-          el: host,
-          p5,
-          mouseControls: true,
-          touchControls: true,
-          gyroControls: false,
-          minHeight: 200.0,
-          minWidth: 200.0,
-          scale: 1.0,
-          scaleMobile: 1.0,
-          color: REST.line,
-          backgroundColor: 0x6c5cd9,
-        });
-        // Vanta resizes the canvas under a flow field sized for the old one,
-        // which throws once the window grows; the resize handler below
-        // rebuilds the effect instead.
-        window.removeEventListener("resize", eff.resize);
-        // Its own frame loop only measures the page for a p5 effect.
-        if (eff.req) cancelAnimationFrame(eff.req);
-        // The tint lives on the host (so it can transition); the canvas only
-        // carries the lines.
-        if (eff.p5canvas) eff.p5canvas.style.background = "transparent";
-        effectRef.current = eff;
-        paintLines();
-        applyRun();
-      })
-      .catch(() => {
-        // The static tint stands in if the effect cannot load.
-      })
-      .finally(() => {
-        creatingRef.current = null;
-      });
-    creatingRef.current = job;
-    return job;
-  }, [reduced, paintLines, applyRun]);
-
-  /** Tint and line colour for the open card (or the rest state). */
-  const setPalette = useCallback(
-    (i: number, instant = false) => {
-      const target = i < 0 ? REST : DOMAINS[i];
-      const bg = bgRef.current;
-      if (bg) {
-        if (instant) bg.style.transition = "none";
-        bg.style.backgroundColor = target.bg;
-        if (instant) {
-          void bg.offsetWidth;
-          bg.style.transition = "";
-        }
-      }
-      lineTween.current?.kill();
-      const to = toRgb(target.line);
-      if (instant || reduced || !effectRef.current) {
-        lineCol.current = to;
-        paintLines();
-        return;
-      }
-      lineTween.current = gsap.to(lineCol.current, {
-        ...to,
-        duration: 0.9,
-        ease: "power2.out",
-        onUpdate: paintLines,
-      });
-    },
-    [reduced, paintLines],
-  );
-
-  // Lifecycle: warm (drawing in the background, then paused) while Brands is
-  // up, running while Domains is open, gone otherwise.
-  useEffect(() => {
-    window.clearTimeout(pauseTimer.current);
-    if (!active && !warm) {
-      runWantRef.current = false;
-      destroyVanta();
-      return;
-    }
-    const existed = effectRef.current !== null;
-    runWantRef.current = true;
-    void createVanta();
-    applyRun();
-    if (!active) {
-      // Leave it long enough for the lines to build up, then stop drawing.
-      pauseTimer.current = window.setTimeout(
-        () => {
-          if (activeRef.current) return;
-          runWantRef.current = false;
-          applyRun();
-        },
-        existed ? 0 : WARM_MS,
-      );
-    }
-  }, [active, warm, createVanta, destroyVanta, applyRun]);
 
   useEffect(
     () => () => {
-      window.clearTimeout(pauseTimer.current);
       window.clearTimeout(leaveTimer.current);
-      window.clearTimeout(paletteTimer.current);
-      lineTween.current?.kill();
-      destroyVanta();
     },
-    [destroyVanta],
+    [],
   );
 
   // --- Layout ----------------------------------------------------------------
@@ -369,16 +156,20 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
       const gap = W > 1100 ? 14 : 12;
       const slim = Math.min(160, Math.floor((W - 80) / 6));
       const big = clamp(W - 5 * (slim + gap) - gap, 380, 640);
-      g = { vertical: false, gap, slim, big, cross: clamp(H, 280, 540) };
+      g = { vertical: false, gap, slim, big, cross: clamp(H, 280, 540), main: W };
     } else {
       const gap = 8;
       const slim = clamp(Math.round((H - 6 * gap) * 0.1), 46, 60);
       const big = clamp(H - 5 * (slim + gap) - gap, 190, 340);
-      g = { vertical: true, gap, slim, big, cross: Math.min(W, 560) };
+      g = { vertical: true, gap, slim, big, cross: Math.min(W, 560), main: H };
     }
     const prev = geoRef.current;
     geoRef.current = g;
-    if (!prev || prev.vertical !== g.vertical) setVertical(g.vertical);
+    if (!prev || prev.vertical !== g.vertical) {
+      setVertical(g.vertical);
+      // The slide moves to the other axis: rewrite it on the next frame.
+      shift.current.written = Number.POSITIVE_INFINITY;
+    }
     row.style.setProperty("--g", `${g.gap}px`);
     row.style.setProperty("--slim", `${g.slim}px`);
     slotRefs.current.forEach((slot) => {
@@ -423,24 +214,6 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
     measure();
   }, [vertical, measure]);
 
-  // Rebuild the background after a resize (see createVanta).
-  useEffect(() => {
-    let t: number | undefined;
-    const onResize = () => {
-      window.clearTimeout(t);
-      t = window.setTimeout(() => {
-        if (!effectRef.current) return;
-        destroyVanta();
-        void createVanta();
-      }, 350);
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [createVanta, destroyVanta]);
-
   useEffect(() => {
     const mq = window.matchMedia("(hover: none)");
     const sync = () => setTouch(mq.matches);
@@ -458,18 +231,8 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
         if (el) el.style.opacity = i >= 0 && k !== i ? "1" : "0";
       });
       cardRefs.current.forEach((el, k) => el?.setAttribute("data-open", String(k === i)));
-      // A short beat before recolouring, so sweeping across the row does not
-      // flicker the whole page through every palette on the way.
-      window.clearTimeout(paletteTimer.current);
-      if (i >= 0) {
-        lastCardRef.current = i;
-        paletteTimer.current = window.setTimeout(() => setPalette(i), 70);
-      } else if (lastCardRef.current >= 0) {
-        // When unhovering, preserve the background of whatever card was hovered last
-        setPalette(lastCardRef.current);
-      }
     },
-    [setPalette],
+    [],
   );
 
   const onSlotEnter = (i: number) => (e: React.PointerEvent) => {
@@ -587,10 +350,43 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
         }
       }
 
+      // At rest the cards fill the row, so an open card overflows it. Centring
+      // that overflow would clip an end card; instead the row slides just
+      // enough to keep the open card inside the stage, and the cards beyond it
+      // run off the far edge.
+      let shiftTarget = 0;
+      if (rowLen > g.main + 0.5) {
+        const natural = (g.main - rowLen) / 2;
+        let lead = natural;
+        if (hv >= 0) {
+          let start = 0;
+          for (let k = 0; k < hv; k++) start += S[k] + g.gap;
+          lead = clamp(natural, -start, g.main - (start + S[hv] + g.gap));
+        }
+        shiftTarget = lead - natural;
+      }
+      const sh = shift.current;
+      if (reduced) {
+        sh.x = shiftTarget;
+        sh.v = 0;
+      } else {
+        const y = sh.x - shiftTarget;
+        const e = Math.exp(-OMEGA * dt);
+        const j = (sh.v + OMEGA * y) * dt;
+        sh.x = shiftTarget + (y + j) * e;
+        sh.v = (sh.v - j * OMEGA) * e;
+      }
+      if (Math.abs(sh.x - sh.written) > 0.01) {
+        sh.written = sh.x;
+        const row = rowRef.current;
+        if (row) {
+          row.style.transform = g.vertical
+            ? `translate3d(0, ${sh.x.toFixed(2)}px, 0)`
+            : `translate3d(${sh.x.toFixed(2)}px, 0, 0)`;
+        }
+      }
+
       // Parallax: the row leans after the cursor, each card at its own pace
-      // (the ones nearest the cursor answer first), so a sweep ripples through
-      // it. While a card is open the others settle on its offset instead, and
-      // the open card itself holds still under the cursor.
       if (reduced || touch) return;
       if ((rectAge += dt) > 0.5 || !stageRect) {
         stageRect = stageRef.current?.getBoundingClientRect();
@@ -601,7 +397,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
       const cursorMain = (g.vertical ? P.y : P.x) - centreMain;
       const tx = P.has && hv < 0 ? P.nx * DRIFT_X : 0;
       const ty = P.has && hv < 0 ? P.ny * DRIFT_Y : 0;
-      let along = -rowLen / 2;
+      let along = -rowLen / 2 + sh.x;
       for (let k = 0; k < N; k++) {
         const len = S[k] + g.gap;
         const centre = along + len / 2;
@@ -653,12 +449,8 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
     () => ({
       prepare: () => {
         window.clearTimeout(leaveTimer.current);
-        window.clearTimeout(paletteTimer.current);
-        lastCardRef.current = -1;
         hoverRef.current = -2; // forces setHover(-1) to apply
         setHover(-1);
-        window.clearTimeout(paletteTimer.current);
-        setPalette(-1, true);
         measure();
         const g = geoRef.current;
         for (let k = 0; k < N; k++) {
@@ -671,16 +463,11 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
           const slot = slotRefs.current[k];
           if (slot) slot.style.transform = "";
         }
+        shift.current = { x: 0, v: 0, written: 0 };
+        if (rowRef.current) rowRef.current.style.transform = "";
         hideContent();
-        // Start drawing now, so the lines build up behind the curtain.
-        window.clearTimeout(pauseTimer.current);
-        runWantRef.current = true;
-        applyRun();
-        void createVanta();
       },
       ready: async () => {
-        await Promise.race([createVanta(), new Promise((r) => setTimeout(r, 350))]);
-        // Let the now-visible screen commit and paint before the curtain lifts.
         await nextFrame();
       },
       playIn: () => {
@@ -692,8 +479,6 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
           gsap.set([...soft, ...cards], { autoAlpha: 1, y: 0 });
           return;
         }
-        // The demo's motion text: lines rise out of their masks as the
-        // curtain clears.
         gsap.to(words, { yPercent: 0, duration: 0.45, stagger: 0.035, ease: "power2.inOut" });
         gsap.to(soft, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power3.out", stagger: 0.05, delay: 0.06 });
         gsap.to(cards, {
@@ -708,7 +493,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
       },
       getRoot: () => sectionRef.current,
     }),
-    [applyRun, createVanta, hideContent, measure, reduced, setHover, setPalette],
+    [hideContent, measure, reduced, setHover],
   );
 
   return (
@@ -721,16 +506,10 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean; warm: boolean
         if (touch && !rowRef.current?.contains(e.target as Node)) setHover(-1);
       }}
     >
-      {/* Background: the topology over a tint that follows the open card. */}
-      <div
-        ref={bgRef}
-        className="absolute inset-0 transition-[background-color] duration-[900ms] ease-out"
-        style={{ backgroundColor: REST.bg }}
-      >
-        <div ref={vantaRef} className="absolute inset-0" />
+      {/* Background: pure black canvas with subtle ambient radial glow */}
+      <div className="absolute inset-0 bg-[#040406]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_35%,rgba(255,255,255,0.05)_0%,transparent_70%)]" />
       </div>
-      {/* Keeps the type legible over the busiest lines. */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_85%_at_50%_42%,transparent_38%,rgba(0,0,0,0.5)_100%)]" />
 
       <div className="relative flex h-full flex-col px-5 pb-5 pt-[88px] sm:px-8 sm:pt-[100px] lg:px-12 lg:pb-7">
         <header className="mx-auto flex max-w-[900px] flex-col items-center text-center">

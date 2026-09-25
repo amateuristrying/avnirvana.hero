@@ -10,7 +10,7 @@ import BandTransition, { type BandTransitionHandle } from "@/components/transiti
 import ProductsLight from "@/components/products/ProductsLight";
 import BrandsScreen from "@/components/brands/BrandsScreen";
 import DomeTransition, { type DomeTransitionHandle } from "@/components/transitions/DomeTransition";
-import DomainsScreen, { preloadDomains, type DomainsHandle } from "@/components/domains/DomainsScreen";
+import DomainsScreen, { type DomainsHandle } from "@/components/domains/DomainsScreen";
 import ContactScreen, { type ContactScreenHandle } from "@/components/contact/ContactScreen";
 
 /**
@@ -82,11 +82,7 @@ export default function PrismHero() {
   const contactRef = useRef<ContactScreenHandle>(null);
   const contactTransitionBusyRef = useRef(false);
 
-  // The Domains background (p5 + Vanta) is only fetched once the white
-  // screens are reached, one step ahead of needing it.
-  useEffect(() => {
-    if (productsOn) void preloadDomains();
-  }, [productsOn]);
+
 
   const onBrandsEntered = useCallback(() => {
     setBrandsSettled(true);
@@ -887,7 +883,7 @@ export default function PrismHero() {
           onExited={onBrandsExited}
         />
       </div>
-      <DomainsScreen ref={domainsRef} active={domainsOn} warm={brandsSettled && !contactOn} />
+      <DomainsScreen ref={domainsRef} active={domainsOn} />
       <ContactScreen ref={contactRef} active={contactOn} />
       {/* One nav across the overlay screens, so it holds still between them. */}
       {(productsOn || domainsOn || contactOn) && (
