@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { AV_LOGO } from "@/lib/logo";
-import { sampleOutline } from "@/lib/outline";
+import { sampleOutline, sampleInterior } from "@/lib/outline";
 import { getPointer, subscribePointer } from "@/lib/pointer";
 import { gaussian, mulberry32 } from "@/lib/prng";
 import { useReducedMotion } from "@/lib/useReducedMotion";
@@ -144,9 +144,11 @@ interface Field {
   /** Home position in viewBox units, jitter and halo offset already baked in. */
   vx: Float32Array;
   vy: Float32Array;
+  vz: Float32Array;
   /** Home position in canvas CSS pixels. */
   hx: Float32Array;
   hy: Float32Array;
+  hz: Float32Array;
   x: Float32Array;
   y: Float32Array;
   velX: Float32Array;
@@ -173,6 +175,8 @@ interface Field {
   rndB: Float32Array;
   /** Index of the first particle of each tier, plus a terminating `n`. */
   tierStart: number[];
+  /** Perspective depth scale for 3D rotation. */
+  depthScale: Float32Array;
 }
 
 function buildField(count: number, sizeBoost: number): Field | null {
@@ -180,16 +184,25 @@ function buildField(count: number, sizeBoost: number): Field | null {
   const outline = sampleOutline(AV_LOGO, core);
   if (outline.count === 0) return null;
 
-  const n = Math.round(outline.count / CORE_SHARE);
+  // Sample interior fill particles strictly inside the hollow chevron ribbons
+  const interiorWanted = Math.round(outline.count * 1.55);
+  const interior = sampleInterior(AV_LOGO, interiorWanted);
+
+  const haloCount = Math.round(outline.count * 0.35);
+  const n = outline.count + interior.count + haloCount;
   const rnd = mulberry32(9184233);
 
   const vb = AV_LOGO.viewBox;
   const cx = vb.x + vb.width / 2;
   const cy = vb.y + vb.height / 2;
 
-  // Pass one: generate every particle, tagging its tier.
+  // 3D thickness of the logo in viewBox units (~24% of width), giving it clear dimensional width
+  const THICKNESS = 220;
+
+  // Pass one: generate every particle, tagging its tier and 3D depth (Z).
   const gvx = new Float32Array(n);
   const gvy = new Float32Array(n);
+  const gvz = new Float32Array(n);
   const gsize = new Float32Array(n);
   const gstiff = new Float32Array(n);
   const gdamp = new Float32Array(n);
@@ -208,61 +221,86 @@ function buildField(count: number, sizeBoost: number): Field | null {
   const gtier = new Uint8Array(n);
 
   for (let i = 0; i < n; i++) {
-    const isHalo = i >= outline.count;
-    const s = isHalo ? Math.floor(rnd() * outline.count) : i;
+    let px = 0;
+    let py = 0;
+    let pz = 0;
+    let tier = 0;
+    let isHalo = false;
+    let isInterior = false;
 
-    const ox = outline.nx[s];
-    const oy = outline.ny[s];
-    // Tangent, for spreading along the contour rather than across it.
-    const tx = -oy;
-    const ty = ox;
-    // How much this stretch of contour faces the dissolve direction.
-    const facing = Math.max(0, ox * DUST_DIR_X + oy * DUST_DIR_Y);
+    if (i < outline.count) {
+      // 1. Outline particles: keep the crisp contour completely intact!
+      const ox = outline.nx[i];
+      const oy = outline.ny[i];
+      const tx = -oy;
+      const ty = ox;
+      const facing = Math.max(0, ox * DUST_DIR_X + oy * DUST_DIR_Y);
 
-    let px = outline.x[s];
-    let py = outline.y[s];
+      px = outline.x[i] + ox * gaussian(rnd) * STROKE_SIGMA + tx * gaussian(rnd) * 4.2;
+      py = outline.y[i] + oy * gaussian(rnd) * STROKE_SIGMA + ty * gaussian(rnd) * 4.2;
 
-    if (isHalo) {
-      // Always pushed *outward* along the contour normal, so dust can never
-      // wander into the hollow interior of a chevron.
+      // Distribute outline across 3D front & back rims plus connecting side bevels
+      const rim = i % 4;
+      if (rim === 0) {
+        pz = THICKNESS * 0.5 + (rnd() - 0.5) * 14;
+      } else if (rim === 1) {
+        pz = -THICKNESS * 0.5 + (rnd() - 0.5) * 14;
+      } else {
+        pz = (rnd() - 0.5) * THICKNESS;
+      }
+
+      const bias = facing * 0.3;
+      tier = pickTier(clamp(rnd() + bias, 0, 0.999), CORE_TIER_WEIGHTS);
+    } else if (i < outline.count + interior.count) {
+      // 2. Interior fill particles: populate the hollow ribbons solidly from top to bottom!
+      isInterior = true;
+      const idx = i - outline.count;
+      px = interior.x[idx] + gaussian(rnd) * 2.2;
+      py = interior.y[idx] + gaussian(rnd) * 2.2;
+
+      // Volumetric depth fill across the 3D ribbon slab
+      pz = (rnd() - 0.5) * THICKNESS * 0.94;
+
+      // Solid, bright particle fill matching the actual brand logo
+      tier = pickTier(rnd(), [0.36, 0.38, 0.20, 0.06, 0.0]);
+    } else {
+      // 3. Halo dust particles: outer floating stardust
+      isHalo = true;
+      const s = Math.floor(rnd() * outline.count);
+      const ox = outline.nx[s];
+      const oy = outline.ny[s];
+      const tx = -oy;
+      const ty = ox;
+      const facing = Math.max(0, ox * DUST_DIR_X + oy * DUST_DIR_Y);
+
       const out = 8 + Math.pow(rnd(), 2.1) * HALO_REACH;
       const along = gaussian(rnd) * 22;
       const stream = Math.pow(rnd(), 2) * 105 * facing;
 
-      px += ox * (out + stream) + tx * along;
-      py += oy * (out + stream) + ty * along;
-    } else {
-      px += ox * gaussian(rnd) * STROKE_SIGMA + tx * gaussian(rnd) * 4.2;
-      py += oy * gaussian(rnd) * STROKE_SIGMA + ty * gaussian(rnd) * 4.2;
-    }
+      px = outline.x[s] + ox * (out + stream) + tx * along;
+      py = outline.y[s] + oy * (out + stream) + ty * along;
+      pz = (rnd() - 0.5) * THICKNESS * 1.4;
 
-    // Edges facing the dissolve read a little fainter, so the mark looks like
-    // it is coming apart on one side rather than uniformly dotted.
-    const bias = isHalo ? 0 : facing * 0.3;
-    const tier = pickTier(
-      clamp(rnd() + bias, 0, 0.999),
-      isHalo ? HALO_TIER_WEIGHTS : CORE_TIER_WEIGHTS,
-    );
+      tier = pickTier(rnd(), HALO_TIER_WEIGHTS);
+    }
 
     gvx[i] = px;
     gvy[i] = py;
+    gvz[i] = pz;
     gtier[i] = tier;
-    gsize[i] = TIERS[tier].size * (0.82 + rnd() * 0.43) * sizeBoost * SPRITE_OVERDRAW;
-    // Halo particles are looser: they lag further, settle more slowly, and
-    // answer the cursor more readily than the dense core does.
-    gstiff[i] = SPRING_BASE * (isHalo ? 0.34 + rnd() * 0.3 : 0.72 + rnd() * 0.68);
-    gdamp[i] = DAMPING_BASE * (isHalo ? 0.72 + rnd() * 0.3 : 0.85 + rnd() * 0.4);
-    gpush[i] = isHalo ? 1.15 + rnd() * 0.4 : 0.78 + rnd() * 0.44;
+    const sizeMul = isInterior ? 1.08 + rnd() * 0.36 : (0.82 + rnd() * 0.43);
+    gsize[i] = TIERS[tier].size * sizeMul * sizeBoost * SPRITE_OVERDRAW;
 
-    const wob = isHalo ? 2.1 : 0.62;
+    gstiff[i] = SPRING_BASE * (isHalo ? 0.34 + rnd() * 0.3 : isInterior ? 0.74 + rnd() * 0.5 : 0.72 + rnd() * 0.68);
+    gdamp[i] = DAMPING_BASE * (isHalo ? 0.72 + rnd() * 0.3 : 0.85 + rnd() * 0.4);
+    gpush[i] = isHalo ? 1.15 + rnd() * 0.4 : isInterior ? 0.82 + rnd() * 0.4 : 0.78 + rnd() * 0.44;
+
+    const wob = isHalo ? 2.1 : isInterior ? 0.85 : 0.62;
     gwAX[i] = (rnd() * 2 - 1) * wob;
     gwBX[i] = (rnd() * 2 - 1) * wob * 0.7;
     gwAY[i] = (rnd() * 2 - 1) * wob;
     gwBY[i] = (rnd() * 2 - 1) * wob * 0.7;
 
-    // Starting cloud: the mark's own geometry, rotated and thrown outward,
-    // then half-dissolved into noise. Kept in 0..1 of the canvas so the cloud
-    // never gets clipped by the edges of the frame.
     const ux = (px - cx) / (vb.width * 0.5);
     const uy = (py - cy) / (vb.height * 0.5);
     const rot = 0.55 + rnd() * 0.5;
@@ -275,7 +313,6 @@ function buildField(count: number, sizeBoost: number): Field | null {
     gsv[i] = clamp(swirlV * 0.5 + rnd() * 0.5, 0.02, 0.98);
     gsm[i] = 0.72 + rnd() * 0.28;
 
-    // Sweep the assembly upward: the base of the mark lands first.
     gdelay[i] = INTRO_SWEEP * (1 - (py - vb.y) / vb.height) + rnd() * INTRO_JITTER;
     gdur[i] = INTRO_DUR_MIN + rnd() * INTRO_DUR_VAR;
 
@@ -295,8 +332,10 @@ function buildField(count: number, sizeBoost: number): Field | null {
     n,
     vx: new Float32Array(n),
     vy: new Float32Array(n),
+    vz: new Float32Array(n),
     hx: new Float32Array(n),
     hy: new Float32Array(n),
+    hz: new Float32Array(n),
     x: new Float32Array(n),
     y: new Float32Array(n),
     velX: new Float32Array(n),
@@ -317,6 +356,7 @@ function buildField(count: number, sizeBoost: number): Field | null {
     rndA: new Float32Array(n),
     rndB: new Float32Array(n),
     tierStart,
+    depthScale: new Float32Array(n).fill(1),
   };
 
   for (let i = 0; i < n; i++) {
@@ -324,6 +364,7 @@ function buildField(count: number, sizeBoost: number): Field | null {
     const j = cursor[t]++;
     field.vx[j] = gvx[i];
     field.vy[j] = gvy[i];
+    field.vz[j] = gvz[i];
     field.size[j] = gsize[i];
     field.stiff[j] = gstiff[i];
     field.damp[j] = gdamp[i];
@@ -351,15 +392,50 @@ function desiredCount(w: number, h: number, coarse: boolean) {
   return clamp(n, 1100, coarse ? 2600 : 6000);
 }
 
-export default function ParticleLogo({ className = "" }: { className?: string }) {
+/** Where the logo box sits on the stage: offset from its centre (px) and scale. */
+export interface LogoPlacement {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+export default function ParticleLogo({
+  className = "",
+  disassemble = 0,
+  placement,
+  paused = false,
+}: {
+  className?: string;
+  disassemble?: number;
+  /** Freeze the simulation (e.g. while another screen covers it). */
+  paused?: boolean;
+  /**
+   * Stage mode. When given, the canvas covers its whole positioned parent and
+   * the mark is placed inside it by this offset and scale, so particles can
+   * travel anywhere in the frame instead of being clipped at the edge of the
+   * logo box. `className` then only sizes that (invisible) box.
+   */
+  placement?: LogoPlacement;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reduced = useReducedMotion();
+  const disassembleRef = useRef(disassemble);
+  disassembleRef.current = disassemble;
+  const placementRef = useRef(placement);
+  placementRef.current = placement;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const stage = placement !== undefined;
 
   useEffect(() => {
     const host = hostRef.current;
     const canvas = canvasRef.current;
     if (!host || !canvas) return;
+    // The box the mark is fitted into: an invisible child of the full-frame
+    // host in stage mode, otherwise the host itself.
+    const box = boxRef.current ?? host;
 
     const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
@@ -376,7 +452,12 @@ export default function ParticleLogo({ className = "" }: { className?: string })
     let offY = 0;
     let drawW = 0;
     let drawH = 0;
-    let rect = host.getBoundingClientRect();
+    let frameW = 0;
+    let frameH = 0;
+    let dpr = 1;
+    let frameRect = host.getBoundingClientRect();
+    /** On-screen rect of the logo box (virtual in stage mode). */
+    let rect = { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 };
     let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
     let phase: Phase = reduced ? "live" : "intro";
@@ -385,8 +466,46 @@ export default function ParticleLogo({ className = "" }: { className?: string })
     let burstT = 0;
     let disturb = 0;
 
+    // Idle rotation mechanics:
+    // After IDLE_DELAY seconds undisturbed the mark makes one full, eased turn
+    // about its vertical axis and lands facing front, then waits and repeats.
+    // Both faces show the true (unmirrored) mark, so any angle that is a
+    // multiple of PI is a correct rest pose. Hover, bursts and the scroll
+    // transition cancel a turn and glide to the nearest such pose.
+    let idleTimer = 0;
+    let rotAngle = 0;
+    let turning = false;
+    let turnFrom = 0;
+    let turnT = 0;
+    const IDLE_DELAY = 4.0; // seconds at rest before each turn
+    const TURN_S = 8.0; // duration of one full turn
+
+    /** The logo box's scale and top-left on the frame, in frame CSS px. */
+    const place = () => {
+      const pl = placementRef.current;
+      const s = pl ? Math.max(0.001, pl.scale) : 1;
+      const bx = frameW / 2 + (pl ? pl.x : 0) - (width * s) / 2;
+      const by = frameH / 2 + (pl ? pl.y : 0) - (height * s) / 2;
+      return { s, bx, by };
+    };
+
+    const syncRect = () => {
+      const { s, bx, by } = place();
+      const left = frameRect.left + bx;
+      const top = frameRect.top + by;
+      rect = {
+        left,
+        top,
+        width: width * s,
+        height: height * s,
+        right: left + width * s,
+        bottom: top + height * s,
+      };
+    };
+
     const measure = () => {
-      rect = host.getBoundingClientRect();
+      frameRect = host.getBoundingClientRect();
+      syncRect();
     };
 
     /** Fit the mark inside the host, preserving aspect and leaving halo room. */
@@ -407,6 +526,7 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       for (let i = 0; i < field.n; i++) {
         field.hx[i] = offX + (field.vx[i] - vb.x) * scale;
         field.hy[i] = offY + (field.vy[i] - vb.y) * scale;
+        field.hz[i] = field.vz[i] * scale;
         if (remap) {
           field.x[i] = offX + (field.x[i] - prevOffX) * ratio;
           field.y[i] = offY + (field.y[i] - prevOffY) * ratio;
@@ -425,17 +545,23 @@ export default function ParticleLogo({ className = "" }: { className?: string })
 
     const draw = () => {
       if (!field) return;
-      ctx.clearRect(0, 0, width, height);
+      // Clear the whole frame in device space, then draw the mark in box
+      // coordinates, mapped onto the frame by its placement.
+      const { s, bx, by } = place();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * bx, dpr * by);
       const x = field.x;
       const y = field.y;
       const size = field.size;
+      const depthScale = field.depthScale;
       for (let t = 0; t < TIERS.length; t++) {
         const from = field.tierStart[t];
         const to = field.tierStart[t + 1];
         if (from === to) continue;
         const sprite = sprites[t];
         for (let i = from; i < to; i++) {
-          const s = size[i];
+          const s = size[i] * depthScale[i];
           ctx.drawImage(sprite, x[i] - s * 0.5, y[i] - s * 0.5, s, s);
         }
       }
@@ -534,15 +660,19 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       const o3 = Math.cos(t * 0.23 + 0.6);
       const o4 = Math.cos(t * 0.38 + 2.4);
 
-      // Re-measure while the cursor is live: the canvas is positioned by a
-      // translate that no ResizeObserver sees, and a stale rect would aim the
-      // repulsion at where the logo used to be.
-      if (pointer.active) rect = host.getBoundingClientRect();
+      // Placement moves every frame during the scroll transition and no
+      // ResizeObserver sees it, so the box rect is rebuilt from it each step;
+      // the frame itself is only re-read while the cursor is live.
+      if (pointer.active) frameRect = host.getBoundingClientRect();
+      syncRect();
+      const pl = place();
 
       const radius = clamp(drawW * REPEL_RADIUS, 110, 340);
       const radius2 = radius * radius;
-      const px = pointer.x - rect.left;
-      const py = pointer.y - rect.top;
+      const scaleX = rect.width > 0 ? width / rect.width : 1;
+      const scaleY = rect.height > 0 ? height / rect.height : 1;
+      const px = (pointer.x - rect.left) * scaleX;
+      const py = (pointer.y - rect.top) * scaleY;
 
       const onCanvas =
         pointer.active &&
@@ -559,6 +689,38 @@ export default function ParticleLogo({ className = "" }: { className?: string })
         px <= offX + drawW + radius &&
         py >= offY - radius &&
         py <= offY + drawH + radius;
+
+      // Idle turn: wait, make one full eased turn, land on a correct pose.
+      if (!reduced) {
+        const settleTo = () => {
+          const target = Math.round(rotAngle / Math.PI) * Math.PI;
+          const diff = target - rotAngle;
+          rotAngle = Math.abs(diff) < 0.0005 ? target : rotAngle + diff * (1 - Math.exp(-dt * 4.2));
+          return rotAngle === target;
+        };
+
+        if (nearMark || phase === "burst" || disassembleRef.current > 0.001) {
+          turning = false;
+          idleTimer = 0;
+          settleTo();
+        } else if (turning) {
+          turnT += dt;
+          const u = Math.min(1, turnT / TURN_S);
+          rotAngle = turnFrom + Math.PI * 2 * (0.5 - 0.5 * Math.cos(Math.PI * u));
+          if (u >= 1) {
+            turning = false;
+            idleTimer = 0;
+            rotAngle = (turnFrom + Math.PI * 2) % (Math.PI * 2);
+          }
+        } else if (settleTo()) {
+          idleTimer += dt;
+          if (idleTimer >= IDLE_DELAY) {
+            turning = true;
+            turnFrom = rotAngle;
+            turnT = 0;
+          }
+        }
+      }
 
       let springGain = 1;
       let dampMul = 1;
@@ -600,9 +762,67 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       const stiff = field.stiff;
       const push = field.push;
 
+      const cx = offX + drawW * 0.5;
+      const cy = offY + drawH * 0.5;
+      const cosT = Math.cos(rotAngle);
+      const sinT = Math.sin(rotAngle);
+      // Past edge-on the far face is mirrored back, so the mark never reads
+      // backwards: x uses |cos| instead of cos. The swap happens at cos = 0,
+      // where both versions coincide, so it is seamless.
+      const faceCos = Math.abs(cosT);
+      const faceSign = cosT < 0 ? -1 : 1;
+      // Depth shading fades out at the rest poses and at edge-on (where the
+      // face swaps), so particle size never jumps.
+      const depthFade = Math.min(1, Math.abs(Math.sin(2 * rotAngle)) * 2);
+      const isStationary = Math.abs(sinT) < 1e-4;
+
       for (let i = 0; i < field.n; i++) {
-        const homeX = field.hx[i] + o1 * field.wobAX[i] + o2 * field.wobBX[i];
-        const homeY = field.hy[i] + o3 * field.wobAY[i] + o4 * field.wobBY[i];
+        let homeX: number;
+        let homeY: number;
+
+        if (isStationary) {
+          field.depthScale[i] = 1;
+          homeX = field.hx[i] + o1 * field.wobAX[i] + o2 * field.wobBX[i];
+          homeY = field.hy[i] + o3 * field.wobAY[i] + o4 * field.wobBY[i];
+        } else {
+          const relX = field.hx[i] - cx;
+          const relY = field.hy[i] - cy;
+          const relZ = field.hz[i];
+
+          // 3D rotation around the central vertical Y-axis, with the far face
+          // mirrored back (relX * faceSign). Thickness keeps it from ever
+          // collapsing into a line at edge-on.
+          const x3d = relX * faceCos + relZ * sinT;
+          const z3d = (-relX * faceSign * sinT + relZ * cosT) * depthFade;
+
+          // Depth perspective: particles closer to camera (+z) appear larger/brighter
+          const p = clamp(1 + z3d / 850, 0.7, 1.35);
+          field.depthScale[i] = p;
+
+          const targetX = cx + x3d;
+          const targetY = cy + relY;
+
+          homeX = targetX + (o1 * field.wobAX[i] + o2 * field.wobBX[i]) * p;
+          homeY = targetY + (o3 * field.wobAY[i] + o4 * field.wobBY[i]) * p;
+        }
+
+        const dis = disassembleRef.current;
+        if (dis > 0.001) {
+          // Scroll transition: each particle leaves past the viewport edge on
+          // its own side of the mark and comes back from that same side. The
+          // target is set in frame (screen) space so it always clears the edge
+          // whatever the placement or scale, then mapped into box coordinates.
+          const side = field.hx[i] - cx < 0 ? -1 : 1;
+          // Staggered departure: low-rndA particles go first; all are out by dis = 1.
+          const e = smoothstep(0, 1, dis * 1.35 - field.rndA[i] * 0.35);
+          const reach = 80 + field.rndB[i] * frameW * 0.28;
+          const edgeX = side < 0 ? -reach : frameW + reach;
+          const spread = ((field.rndA[i] * 7.13 + field.rndB[i] * 3.71) % 1) * 2 - 1;
+          const targetX = (edgeX - pl.bx) / pl.s;
+          const targetY = homeY + (spread * frameH * 0.32) / pl.s;
+          homeX += (targetX - homeX) * e;
+          homeY += (targetY - homeY) * e;
+        }
 
         const x = field.x[i];
         const y = field.y[i];
@@ -656,10 +876,14 @@ export default function ParticleLogo({ className = "" }: { className?: string })
     };
 
     const resize = () => {
-      const r = host.getBoundingClientRect();
-      const nextW = Math.max(1, Math.round(r.width));
-      const nextH = Math.max(1, Math.round(r.height));
-      if (nextW === width && nextH === height) return;
+      // clientWidth / clientHeight ignore CSS transforms, so an ancestor's
+      // scale can't feed back into the layout size. Physics runs in the logo
+      // box's coordinates; the canvas backs the whole frame.
+      const nextW = Math.max(1, Math.round(box.clientWidth || 560));
+      const nextH = Math.max(1, Math.round(box.clientHeight || 300));
+      const nextFW = Math.max(1, Math.round(host.clientWidth || nextW));
+      const nextFH = Math.max(1, Math.round(host.clientHeight || nextH));
+      if (nextW === width && nextH === height && nextFW === frameW && nextFH === frameH) return;
 
       const prevScale = scale;
       const prevOffX = offX;
@@ -667,13 +891,15 @@ export default function ParticleLogo({ className = "" }: { className?: string })
 
       width = nextW;
       height = nextH;
-      rect = r;
+      frameW = nextFW;
+      frameH = nextFH;
+      frameRect = host.getBoundingClientRect();
 
-      const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+      canvas.width = Math.round(frameW * dpr);
+      canvas.height = Math.round(frameH * dpr);
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
@@ -703,6 +929,7 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       }
 
       applyFit(prevScale, prevOffX, prevOffY);
+      syncRect();
       if (reduced) draw();
     };
 
@@ -710,6 +937,7 @@ export default function ParticleLogo({ className = "" }: { className?: string })
 
     const ro = new ResizeObserver(resize);
     ro.observe(host);
+    if (box !== host) ro.observe(box);
     window.addEventListener("scroll", measure, { passive: true });
     window.addEventListener("resize", measure);
 
@@ -722,7 +950,7 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       raf = requestAnimationFrame(frame);
       let dt = (now - last) / 1000;
       last = now;
-      if (!(dt > 0)) return;
+      if (!(dt > 0) || pausedRef.current) return;
       if (dt > 0.05) dt = 0.05;
       step(dt, now / 1000);
       draw();
@@ -763,6 +991,19 @@ export default function ParticleLogo({ className = "" }: { className?: string })
       releasePointer();
     };
   }, [reduced]);
+
+  if (stage) {
+    return (
+      <div ref={hostRef} className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <canvas ref={canvasRef} className="block h-full w-full" />
+        {/* Sizing only: the logo box the mark is fitted into. Never painted. */}
+        <div
+          ref={boxRef}
+          className={`invisible absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${className}`}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={hostRef} className={`relative ${className}`} aria-hidden="true">

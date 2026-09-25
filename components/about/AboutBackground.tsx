@@ -6,15 +6,15 @@ import Prism from "@/components/prism/Prism";
  * Shared screen background.
  *
  * Each theme keeps its own colour identity by rotating the prism palette
- * (`hueShift`, in turns) rather than swapping the effect, so the per-product
+ * (`hueShift`, in radians) rather than swapping the effect, so the per-product
  * colours survive the move off the ferrofluid.
  */
 const THEME = {
   blue: { hue: 0, tint: "bg-[#05070f]", rgb: "5,7,15" },
-  "light-blue": { hue: 0.08, tint: "bg-[#040d1a]", rgb: "4,13,26" },
-  aqua: { hue: 0.45, tint: "bg-[#03121a]", rgb: "3,18,26" },
-  green: { hue: 0.35, tint: "bg-[#06140f]", rgb: "6,20,15" },
-  purple: { hue: 0.75, tint: "bg-[#0d0517]", rgb: "13,5,23" },
+  "light-blue": { hue: 0.50, tint: "bg-[#040d1a]", rgb: "4,13,26" },
+  aqua: { hue: 2.83, tint: "bg-[#03121a]", rgb: "3,18,26" },
+  green: { hue: 2.20, tint: "bg-[#06140f]", rgb: "6,20,15" },
+  purple: { hue: 4.71, tint: "bg-[#0d0517]", rgb: "13,5,23" },
 } as const;
 
 export default function AboutBackground({

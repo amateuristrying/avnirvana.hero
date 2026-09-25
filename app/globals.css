@@ -20,6 +20,9 @@
      which is exactly this hero now, so the literal value is legible here. */
   --color-brand: #5ba9de;
 
+  /* Swiss neo-grotesk for the Domains cards; Arial covers systems without it. */
+  --font-swiss: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
   /* Lines */
   --color-line: rgba(246, 244, 251, 0.12);
   --color-line-strong: rgba(246, 244, 251, 0.24);

@@ -34,27 +34,35 @@ const PROBE = 2.5;
 const TANGENT_EPS = 0.8;
 
 /**
- * Builds an offscreen 2D context holding the combined filled mark, used purely
- * for inside/outside tests. Kept small — we only need hit testing, not pixels.
+ * Fast mathematical polygon point-in-polygon tester.
+ * Completely immune to canvas rendering bugs, scale quantization, or DOMMatrix issues.
  */
-function createHitTester(source: LogoSource) {
-  const vb = source.viewBox;
-  const target = 320;
-  const scale = target / vb.width;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(vb.width * scale);
-  canvas.height = Math.ceil(vb.height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+function createPolygonTester(source: LogoSource) {
+  const polygons: [number, number][][] = [];
+  for (const d of source.paths) {
+    const clean = d.replace(/[MZ]/gi, "").trim();
+    const pairs = clean.split(/\s+/).map((p) => {
+      const parts = p.split(",");
+      return [parseFloat(parts[0]), parseFloat(parts[1])] as [number, number];
+    });
+    if (pairs.length >= 3) polygons.push(pairs);
+  }
 
-  // The viewBox need not start at the origin, so shift the artwork onto the
-  // canvas — `isPointInPath` is unreliable for points outside the bitmap.
-  const combined = new Path2D();
-  const matrix = new DOMMatrix([scale, 0, 0, scale, -vb.x * scale, -vb.y * scale]);
-  for (const d of source.paths) combined.addPath(new Path2D(d), matrix);
-
-  return (x: number, y: number) =>
-    ctx.isPointInPath(combined, (x - vb.x) * scale, (y - vb.y) * scale);
+  return (x: number, y: number): boolean => {
+    for (const poly of polygons) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0];
+        const yi = poly[i][1];
+        const xj = poly[j][0];
+        const yj = poly[j][1];
+        const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  };
 }
 
 export function sampleOutline(source: LogoSource, count: number, seed = 20260830): OutlineSample {
@@ -96,7 +104,7 @@ export function sampleOutline(source: LogoSource, count: number, seed = 20260830
     const nx = new Float32Array(actual);
     const ny = new Float32Array(actual);
 
-    const isInside = createHitTester(source);
+    const isInside = createPolygonTester(source);
 
     let w = 0;
     for (let p = 0; p < elements.length; p++) {
@@ -148,4 +156,67 @@ export function sampleOutline(source: LogoSource, count: number, seed = 20260830
   } finally {
     svg.remove();
   }
+}
+
+export interface InteriorSample {
+  count: number;
+  x: Float32Array;
+  y: Float32Array;
+}
+
+/**
+ * Samples points uniformly distributed across the entire filled body of the logo ribbons,
+ * ensuring top, middle, and bottom chevrons are all equally and densely populated.
+ */
+export function sampleInterior(source: LogoSource, count: number, seed = 20260830): InteriorSample {
+  const rnd = mulberry32(seed);
+  const isInside = createPolygonTester(source);
+  const vb = source.viewBox;
+
+  // Compute polygon area (Shoelace formula) to calibrate exact grid step for uniform density
+  let area = 0;
+  for (const d of source.paths) {
+    const clean = d.replace(/[MZ]/gi, "").trim();
+    const poly = clean.split(/\s+/).map((p) => p.split(",").map(Number));
+    for (let i = 0; i < poly.length; i++) {
+      const j = (i + 1) % poly.length;
+      area += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
+    }
+  }
+  area = Math.abs(area) / 2;
+  if (area === 0) area = vb.width * vb.height * 0.4;
+
+  const step = Math.sqrt(area / Math.max(1, count));
+  const halfStep = step * 0.5;
+
+  const xList: number[] = [];
+  const yList: number[] = [];
+
+  // Uniform grid scan across the entire viewBox bounding box from top to bottom
+  for (let y = vb.y + halfStep; y < vb.y + vb.height; y += step) {
+    for (let x = vb.x + halfStep; x < vb.x + vb.width; x += step) {
+      const jx = (rnd() - 0.5) * step * 0.76;
+      const jy = (rnd() - 0.5) * step * 0.76;
+      const px = x + jx;
+      const py = y + jy;
+      if (isInside(px, py)) {
+        xList.push(px);
+        yList.push(py);
+      }
+    }
+  }
+
+  const collected = xList.length;
+  const xArr = new Float32Array(collected);
+  const yArr = new Float32Array(collected);
+  for (let i = 0; i < collected; i++) {
+    xArr[i] = xList[i];
+    yArr[i] = yList[i];
+  }
+
+  return {
+    count: collected,
+    x: xArr,
+    y: yArr,
+  };
 }

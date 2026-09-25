@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type React from "react";
 import LogoMark from "./LogoMark";
 import { ArrowUpRight } from "./icons";
 
@@ -13,7 +14,25 @@ const LINKS: { label: string; href: string; active?: boolean }[] = [
   { label: "Contact", href: "#contact" }, // TODO: hook up once the contact screen exists
 ];
 
-export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
+/** Theme tokens re-pointed for a white page, so every token-based class flips with them. */
+const ON_LIGHT = {
+  "--color-fg": "#0d0d12",
+  "--color-fg-soft": "#26262e",
+  "--color-fg-mute": "#5c5c68",
+  "--color-canvas": "#ffffff",
+  "--color-line": "rgba(13,13,18,0.10)",
+  "--color-line-strong": "rgba(13,13,18,0.22)",
+} as React.CSSProperties;
+
+export default function Navbar({
+  menuId = "hero-menu",
+  tone = "onDark",
+}: {
+  menuId?: string;
+  /** "onLight" for white pages: dark type, no text shadow. */
+  tone?: "onDark" | "onLight";
+}) {
+  const light = tone === "onLight";
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -39,10 +58,14 @@ export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
     <header
       ref={headerRef}
       className="absolute inset-x-0 top-0 z-40 px-5 pt-4 sm:px-8 sm:pt-5 lg:px-12 lg:pt-6"
+      style={light ? ON_LIGHT : undefined}
     >
       <div className="mx-auto max-w-[1600px]">
         {/* No container box: the nav floats directly over the ferrofluid */}
-        <nav aria-label="Primary" className="relative [text-shadow:0_1px_14px_rgba(0,0,0,0.55)]">
+        <nav
+          aria-label="Primary"
+          className={`relative ${light ? "" : "[text-shadow:0_1px_14px_rgba(0,0,0,0.55)]"}`}
+        >
           <div className="flex h-[58px] items-center gap-4 sm:h-[64px]">
             {/* Brand */}
             <a
@@ -85,7 +108,11 @@ export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
             <div className="ml-auto flex items-center gap-2 lg:ml-8 lg:gap-3">
               <a
                 href="#contact"
-                className="group hidden items-center gap-2 rounded-full bg-fg py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-canvas shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)] [text-shadow:none] transition-colors duration-300 hover:bg-white sm:inline-flex"
+                className={`group hidden items-center gap-2 rounded-full bg-fg py-2.5 pl-5 pr-4 text-[13.5px] font-medium text-canvas [text-shadow:none] transition-colors duration-300 sm:inline-flex ${
+                  light
+                    ? "shadow-[0_8px_24px_-12px_rgba(0,0,0,0.45)] hover:bg-[#2a2a33]"
+                    : "shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)] hover:bg-white"
+                }`}
               >
                 Talk to our expert
                 <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -123,7 +150,9 @@ export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
           {/* Menu panel: floating glass card, since the bar itself no longer has a box */}
           <div
             id={menuId}
-            className={`absolute top-full right-0 mt-2 grid w-[min(100%,440px)] overflow-hidden rounded-2xl border border-line bg-canvas/70 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl [text-shadow:none] transition-[grid-template-rows,opacity,visibility] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`absolute top-full right-0 mt-2 grid w-[min(100%,440px)] overflow-hidden rounded-2xl border border-line bg-canvas/70 backdrop-blur-xl ${
+              light ? "shadow-[0_20px_50px_-24px_rgba(0,0,0,0.35)]" : "shadow-[0_20px_50px_-20px_rgba(0,0,0,0.8)]"
+            } [text-shadow:none] transition-[grid-template-rows,opacity,visibility] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none invisible grid-rows-[0fr] opacity-0"
             }`}
           >
@@ -147,7 +176,9 @@ export default function Navbar({ menuId = "hero-menu" }: { menuId?: string }) {
                   href="#contact"
                   tabIndex={open ? 0 : -1}
                   onClick={() => setOpen(false)}
-                  className="group mt-3 flex items-center justify-center gap-2 rounded-full bg-fg py-3 text-[14px] font-medium text-canvas transition-colors duration-300 hover:bg-white sm:hidden"
+                  className={`group mt-3 flex items-center justify-center gap-2 rounded-full bg-fg py-3 text-[14px] font-medium text-canvas transition-colors duration-300 sm:hidden ${
+                    light ? "hover:bg-[#2a2a33]" : "hover:bg-white"
+                  }`}
                 >
                   Talk to our expert
                   <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

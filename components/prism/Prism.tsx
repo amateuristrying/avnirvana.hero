@@ -1,203 +1,71 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Renderer, Program, Mesh, Triangle } from "ogl";
-import { getPointer, subscribePointer } from "@/lib/pointer";
+import { Renderer, Triangle, Program, Mesh } from "ogl";
+import "./Prism.css";
 
 /**
- * Prismatic light background.
+ * React Bits `Prism`, ported to TypeScript.
  *
- * A raymarched pyramid is lit from below and the ray is dispersed across a
- * cosine spectrum on exit, then bloomed heavily — which is what produces the
- * soft bands of colour rather than a hard glass solid. Everything renders in
- * one fragment shader on a full-screen triangle, so the cost is pixels, not
- * geometry; `dpr` is clamped low because the march is the expensive part.
- *
- * Props mirror the React Bits `Prism` API so the usage snippet drops straight
- * in; this is an original implementation of that interface.
+ * The shader and animation logic are the upstream implementation, unchanged.
+ * The only addition is the optional `paused` prop: this hero mounts several
+ * instances at once (hero, about, contact) and the fragment shader runs a
+ * 100-step raymarch per pixel, so idle screens need a way to stop their loop.
  */
 export interface PrismProps {
-  className?: string;
-  /** Pyramid height in world units. */
+  /** Apex height of the prism (world units). */
   height?: number;
-  /** Pyramid base width in world units. */
+  /** Total base width across X/Z (world units). */
   baseWidth?: number;
-  /** `rotate` spins, `3drotate` tumbles, `hover` follows the cursor. */
-  animationType?: "rotate" | "3drotate" | "hover";
-  /** Bloom strength around the body. */
+  /** Shader wobble, pointer hover tilt, or full 3D rotation. */
+  animationType?: "rotate" | "hover" | "3drotate";
+  /** Glow/bleed intensity multiplier. */
   glow?: number;
-  /** Film grain amount. */
+  /** Pixel offset within the canvas (x -> right, y -> down). */
+  offset?: { x?: number; y?: number };
+  /** Film-grain noise added to the final colour (0 disables). */
   noise?: number;
-  /** Camera zoom — larger pulls the prism closer. */
+  /** Whether the canvas has an alpha channel. */
+  transparent?: boolean;
+  /** Overall screen-space scale of the prism. */
   scale?: number;
-  /** Rotates the whole palette, in turns. */
+  /** Hue rotation (radians) applied to the final colour. */
   hueShift?: number;
-  /** How rapidly the spectrum cycles across the dispersed ray. */
+  /** Frequency of the internal sine bands driving colour variation. */
   colorFrequency?: number;
-  /** Multiplier on elapsed time. */
+  /** Sensitivity of the hover tilt. */
+  hoverStrength?: number;
+  /** Easing factor for hover (0..1, higher = snappier). */
+  inertia?: number;
+  /** Extra bloom layered on top of glow. */
+  bloom?: number;
+  /** Pause rendering while the element is out of the viewport. */
+  suspendWhenOffscreen?: boolean;
+  /** Global time multiplier (0 = frozen). */
   timeScale?: number;
-  /** Freeze the animation loop (keeps the last frame). */
+  lightMode?: boolean;
+  /** Addition to the upstream API: halt the render loop entirely. */
   paused?: boolean;
-  /** Device pixel ratio cap. Defaults to 1 — this shader is fill-bound. */
-  dpr?: number;
 }
-
-const vertex = /* glsl */ `
-attribute vec2 position;
-void main() { gl_Position = vec4(position, 0.0, 1.0); }
-`;
-
-const fragment = /* glsl */ `
-precision highp float;
-
-uniform vec2  iResolution;
-uniform float iTime;
-uniform vec2  uPointer;
-uniform float uHeight;
-uniform float uBaseWidth;
-uniform float uGlow;
-uniform float uNoise;
-uniform float uScale;
-uniform float uHueShift;
-uniform float uColorFreq;
-uniform float uMode;        // 0 rotate, 1 3drotate, 2 hover
-
-#define STEPS 64
-#define FAR 16.0
-
-mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
-
-// Cosine palette (Inigo Quilez), kept desaturated so the bloom reads as light
-// rather than as printed colour.
-vec3 palette(float t) {
-  vec3 a = vec3(0.46, 0.44, 0.50);
-  vec3 b = vec3(0.38, 0.36, 0.42);
-  vec3 c = vec3(1.00, 1.00, 1.00);
-  vec3 d = vec3(0.00, 0.20, 0.46);
-  return a + b * cos(6.28318 * (c * t + d + uHueShift));
-}
-
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-// Square pyramid SDF (IQ). h is height, unit base at y = 0.
-float sdPyramid(vec3 p, float h) {
-  float m2 = h * h + 0.25;
-  p.xz = abs(p.xz);
-  p.xz = (p.z > p.x) ? p.zx : p.xz;
-  p.xz -= 0.5;
-  vec3 q = vec3(p.z, h * p.y - 0.5 * p.x, h * p.x + 0.5 * p.y);
-  float s = max(-q.x, 0.0);
-  float t = clamp((q.y - 0.5 * p.z) / (m2 + 0.25), 0.0, 1.0);
-  float a = m2 * (q.x + s) * (q.x + s) + q.y * q.y;
-  float b = m2 * (q.x + 0.5 * t) * (q.x + 0.5 * t) + (q.y - m2 * t) * (q.y - m2 * t);
-  float d2 = min(q.y, -q.x * m2 - q.y * 0.5) > 0.0 ? 0.0 : min(a, b);
-  return sqrt((d2 + q.z * q.z) / m2) * sign(max(q.z, -p.y));
-}
-
-vec3 transform(vec3 p) {
-  float t = iTime;
-  if (uMode < 0.5) {
-    p.xz *= rot(t * 0.6);
-  } else if (uMode < 1.5) {
-    p.xz *= rot(t * 0.55);
-    p.xy *= rot(sin(t * 0.37) * 0.5);
-  } else {
-    // hover: the cursor steers the tilt over a slow idle drift
-    p.xz *= rot(uPointer.x * 0.9 + t * 0.10);
-    p.xy *= rot(-uPointer.y * 0.55 + sin(t * 0.22) * 0.10);
-  }
-  return p;
-}
-
-float map(vec3 p) {
-  vec3 q = transform(p);
-  q.y += uHeight * 0.30;
-  q.xz /= max(uBaseWidth, 0.001);
-  return sdPyramid(q, uHeight) * min(uBaseWidth, 1.0);
-}
-
-void main() {
-  vec2 frag = gl_FragCoord.xy;
-  vec2 uv = (frag - 0.5 * iResolution.xy) / max(iResolution.y, 1.0);
-
-  vec3 ro = vec3(0.0, 0.0, -21.0 / max(uScale, 0.001));
-  vec3 rd = normalize(vec3(uv * 1.35, 1.6));
-
-  // March straight through the body, accumulating emission. Treating the
-  // prism as a participating volume rather than a lit surface is what keeps
-  // the silhouette soft instead of cutting a hard triangle out of the frame.
-  float t = 0.0;
-  vec3 acc = vec3(0.0);
-  float transmittance = 1.0;
-  float halo = 0.0;
-
-  for (int i = 0; i < STEPS; i++) {
-    vec3 p = ro + rd * t;
-    float d = map(p);
-
-    // Outside contribution: soft bloom that falls off with distance
-    halo += 0.020 / (0.10 + d * d * 9.0);
-
-    if (d < 0.0) {
-      // Inside: emission tinted by depth through the body and by where the
-      // ray sits across the prism, which is what spreads the spectrum.
-      float depth = clamp(-d * 1.6, 0.0, 1.0);
-      float band = (p.y * 0.30 + p.x * 0.16 + t * 0.045) * uColorFreq;
-      vec3 c = palette(band);
-      acc += c * (0.055 + depth * 0.10) * transmittance;
-      transmittance *= 0.955;
-      if (transmittance < 0.02) break;
-    }
-
-    t += max(abs(d) * 0.65, 0.022);
-    if (t > FAR) break;
-  }
-
-  // Base field: a very dark vertical wash so the frame is never flat black
-  float bg = smoothstep(0.85, -0.6, uv.y);
-  vec3 col = palette(uv.y * uColorFreq * 0.55 + 0.1) * bg * 0.055;
-
-  col += acc * 1.35;
-  col += palette(uv.y * uColorFreq * 0.7 + 0.2) * halo * 0.055 * uGlow;
-
-  // Lift the lower centre, sink the top — the composition the copy sits in
-  float lift = smoothstep(0.62, -0.5, uv.y);
-  col += palette(0.35 + uHueShift) * lift * 0.075 * uGlow;
-  col *= mix(0.22, 1.0, smoothstep(1.0, -0.35, uv.y * 1.25 + 0.3));
-
-  // Light spilling toward the viewer along the bottom edge
-  float bottom = smoothstep(-0.08, -0.52, uv.y);
-  col += palette(0.55 + uHueShift) * bottom * 0.13 * uGlow;
-
-  // Radial vignette keeps attention centred
-  col *= 1.0 - smoothstep(0.50, 1.18, length(uv * vec2(0.85, 1.0))) * 0.60;
-
-  float g = hash(frag + fract(iTime) * 137.0) - 0.5;
-  col += g * uNoise * 0.045;
-
-  col = max(col, 0.0);
-  col = col / (1.0 + col * 0.72);   // filmic rolloff keeps highlights from clipping
-  col = pow(col, vec3(0.92));
-
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
 
 export default function Prism({
-  className,
-  height = 3.4,
+  height = 3.5,
   baseWidth = 5.5,
   animationType = "rotate",
   glow = 1,
+  offset = { x: 0, y: 0 },
   noise = 0.5,
-  scale = 4.2,
+  transparent = true,
+  scale = 3.6,
   hueShift = 0,
-  colorFrequency = 0.8,
-  timeScale = 0.7,
+  colorFrequency = 1,
+  hoverStrength = 2,
+  inertia = 0.05,
+  bloom = 1,
+  suspendWhenOffscreen = false,
+  timeScale = 0.5,
+  lightMode = false,
   paused = false,
-  dpr,
 }: PrismProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -205,108 +73,366 @@ export default function Prism({
     const container = containerRef.current;
     if (!container) return;
 
-    const renderer = new Renderer({
-      dpr: dpr ?? 1,
-      alpha: false,
-      antialias: false,
-    });
-    const gl = renderer.gl;
-    const canvas = gl.canvas as HTMLCanvasElement;
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
-    canvas.style.display = "block";
-    container.appendChild(canvas);
+    const H = Math.max(0.001, height);
+    const BW = Math.max(0.001, baseWidth);
+    const BASE_HALF = BW * 0.5;
+    const GLOW = Math.max(0.0, glow);
+    const NOISE = Math.max(0.0, noise);
+    const offX = offset?.x ?? 0;
+    const offY = offset?.y ?? 0;
+    const SAT = transparent ? 1.5 : 1;
+    const SCALE = Math.max(0.001, scale);
+    const HUE = hueShift || 0;
+    const CFREQ = Math.max(0.0, colorFrequency || 1);
+    const BLOOM = Math.max(0.0, bloom || 1);
+    const RSX = 1;
+    const RSY = 1;
+    const RSZ = 1;
+    const TS = Math.max(0, timeScale || 1);
+    const HOVSTR = Math.max(0, hoverStrength || 1);
+    const INERT = Math.max(0, Math.min(1, inertia || 0.12));
 
-    const modeIndex = animationType === "hover" ? 2 : animationType === "3drotate" ? 1 : 0;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const renderer = new Renderer({ dpr, alpha: transparent, antialias: false });
+    const gl = renderer.gl;
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.BLEND);
+
+    Object.assign(gl.canvas.style, {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      display: "block",
+    });
+    container.appendChild(gl.canvas);
+
+    const vertex = /* glsl */ `
+      attribute vec2 position;
+      void main() {
+        gl_Position = vec4(position, 0.0, 1.0);
+      }
+    `;
+
+    const fragment = /* glsl */ `
+      precision highp float;
+
+      uniform vec2  iResolution;
+      uniform float iTime;
+
+      uniform float uHeight;
+      uniform float uBaseHalf;
+      uniform mat3  uRot;
+      uniform int   uUseBaseWobble;
+      uniform float uGlow;
+      uniform vec2  uOffsetPx;
+      uniform float uNoise;
+      uniform float uSaturation;
+      uniform float uScale;
+      uniform float uHueShift;
+      uniform float uColorFreq;
+      uniform float uBloom;
+      uniform float uCenterShift;
+      uniform float uInvBaseHalf;
+      uniform float uInvHeight;
+      uniform float uMinAxis;
+      uniform float uPxScale;
+      uniform float uTimeScale;
+      uniform float uLightMode;
+
+      vec4 tanh4(vec4 x){
+        vec4 e2x = exp(2.0*x);
+        return (e2x - 1.0) / (e2x + 1.0);
+      }
+
+      float rand(vec2 co){
+        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
+      }
+
+      float sdOctaAnisoInv(vec3 p){
+        vec3 q = vec3(abs(p.x) * uInvBaseHalf, abs(p.y) * uInvHeight, abs(p.z) * uInvBaseHalf);
+        float m = q.x + q.y + q.z - 1.0;
+        return m * uMinAxis * 0.5773502691896258;
+      }
+
+      float sdPyramidUpInv(vec3 p){
+        float oct = sdOctaAnisoInv(p);
+        float halfSpace = -p.y;
+        return max(oct, halfSpace);
+      }
+
+      mat3 hueRotation(float a){
+        float c = cos(a), s = sin(a);
+        mat3 W = mat3(
+          0.299, 0.587, 0.114,
+          0.299, 0.587, 0.114,
+          0.299, 0.587, 0.114
+        );
+        mat3 U = mat3(
+           0.701, -0.587, -0.114,
+          -0.299,  0.413, -0.114,
+          -0.300, -0.588,  0.886
+        );
+        mat3 V = mat3(
+           0.168, -0.331,  0.500,
+           0.328,  0.035, -0.500,
+          -0.497,  0.296,  0.201
+        );
+        return W + U * c + V * s;
+      }
+
+      void main(){
+        vec2 f = (gl_FragCoord.xy - 0.5 * iResolution.xy - uOffsetPx) * uPxScale;
+
+        float z = 5.0;
+        float d = 0.0;
+
+        vec3 p;
+        vec4 o = vec4(0.0);
+
+        float centerShift = uCenterShift;
+        float cf = uColorFreq;
+
+        mat2 wob = mat2(1.0);
+        if (uUseBaseWobble == 1) {
+          float t = iTime * uTimeScale;
+          float c0 = cos(t + 0.0);
+          float c1 = cos(t + 33.0);
+          float c2 = cos(t + 11.0);
+          wob = mat2(c0, c1, c2, c0);
+        }
+
+        const int STEPS = 100;
+        for (int i = 0; i < STEPS; i++) {
+          p = vec3(f, z);
+          p.xz = p.xz * wob;
+          p = uRot * p;
+          vec3 q = p;
+          q.y += centerShift;
+          d = 0.1 + 0.2 * abs(sdPyramidUpInv(q));
+          z -= d;
+          o += (sin((p.y + z) * cf + vec4(0.0, 1.0, 2.0, 3.0)) + 1.0) / d;
+        }
+
+        o = tanh4(o * o * (uGlow * uBloom) / 1e5);
+
+        vec3 col = o.rgb;
+        float n = rand(gl_FragCoord.xy + vec2(iTime));
+        col += (n - 0.5) * uNoise;
+        col = clamp(col, 0.0, 1.0);
+
+        float L = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        col = clamp(mix(vec3(L), col, uSaturation), 0.0, 1.0);
+
+        if(abs(uHueShift) > 0.0001){
+          col = clamp(hueRotation(uHueShift) * col, 0.0, 1.0);
+        }
+
+        if (uLightMode > 0.5) {
+          float peak = max(col.r, max(col.g, col.b));
+          vec3 chroma = pow(clamp(col / max(peak, 0.0001), 0.0, 1.0), vec3(1.14));
+          gl_FragColor = vec4(mix(vec3(1.0), chroma, o.a * 0.94), 1.0);
+        } else {
+          gl_FragColor = vec4(col, o.a);
+        }
+      }
+    `;
+
+    const geometry = new Triangle(gl);
+    const iResBuf = new Float32Array(2);
+    const offsetPxBuf = new Float32Array(2);
 
     const program = new Program(gl, {
       vertex,
       fragment,
       uniforms: {
-        iResolution: { value: [gl.drawingBufferWidth, gl.drawingBufferHeight] },
+        iResolution: { value: iResBuf },
         iTime: { value: 0 },
-        uPointer: { value: [0, 0] },
-        uHeight: { value: height },
-        uBaseWidth: { value: baseWidth },
-        uGlow: { value: glow },
-        uNoise: { value: noise },
-        uScale: { value: scale },
-        uHueShift: { value: hueShift },
-        uColorFreq: { value: colorFrequency },
-        uMode: { value: modeIndex },
+        uHeight: { value: H },
+        uBaseHalf: { value: BASE_HALF },
+        uUseBaseWobble: { value: 1 },
+        uRot: { value: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]) },
+        uGlow: { value: GLOW },
+        uOffsetPx: { value: offsetPxBuf },
+        uNoise: { value: NOISE },
+        uSaturation: { value: SAT },
+        uScale: { value: SCALE },
+        uHueShift: { value: HUE },
+        uColorFreq: { value: CFREQ },
+        uBloom: { value: BLOOM },
+        uCenterShift: { value: H * 0.25 },
+        uInvBaseHalf: { value: 1 / BASE_HALF },
+        uInvHeight: { value: 1 / H },
+        uMinAxis: { value: Math.min(BASE_HALF, H) },
+        uPxScale: { value: 1 / ((gl.drawingBufferHeight || 1) * 0.1 * SCALE) },
+        uTimeScale: { value: TS },
+        uLightMode: { value: lightMode ? 1.0 : 0.0 },
       },
     });
-
-    const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
+    const mesh = new Mesh(gl, { geometry, program });
 
     const resize = () => {
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
       renderer.setSize(w, h);
-      program.uniforms.iResolution.value = [gl.drawingBufferWidth, gl.drawingBufferHeight];
+      iResBuf[0] = gl.drawingBufferWidth;
+      iResBuf[1] = gl.drawingBufferHeight;
+      offsetPxBuf[0] = offX * dpr;
+      offsetPxBuf[1] = offY * dpr;
+      program.uniforms.uPxScale.value = 1 / ((gl.drawingBufferHeight || 1) * 0.1 * SCALE);
     };
-    resize();
-
     const ro = new ResizeObserver(resize);
     ro.observe(container);
+    resize();
 
-    const releasePointer = animationType === "hover" ? subscribePointer() : () => {};
-    const pointer = getPointer();
-    const smooth = { x: 0, y: 0 };
+    const rotBuf = new Float32Array(9);
+    const setMat3FromEuler = (yawY: number, pitchX: number, rollZ: number, out: Float32Array) => {
+      const cy = Math.cos(yawY), sy = Math.sin(yawY);
+      const cx = Math.cos(pitchX), sx = Math.sin(pitchX);
+      const cz = Math.cos(rollZ), sz = Math.sin(rollZ);
+      const r00 = cy * cz + sy * sx * sz;
+      const r01 = -cy * sz + sy * sx * cz;
+      const r02 = sy * cx;
+      const r10 = cx * sz;
+      const r11 = cx * cz;
+      const r12 = -sx;
+      const r20 = -sy * cz + cy * sx * sz;
+      const r21 = sy * sz + cy * sx * cz;
+      const r22 = cy * cx;
+      out[0] = r00; out[1] = r10; out[2] = r20;
+      out[3] = r01; out[4] = r11; out[5] = r21;
+      out[6] = r02; out[7] = r12; out[8] = r22;
+      return out;
+    };
 
+    const NOISE_IS_ZERO = NOISE < 1e-6;
     let raf = 0;
-    let running = true;
-    let elapsed = 0;
-    let last = performance.now();
+    const t0 = performance.now();
+    const startRAF = () => {
+      if (raf || paused) return;
+      raf = requestAnimationFrame(render);
+    };
+    const stopRAF = () => {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
 
-    const frame = (now: number) => {
-      if (!running) return;
-      raf = requestAnimationFrame(frame);
+    const rnd = () => Math.random();
+    const wX = (0.3 + rnd() * 0.6) * RSX;
+    const wY = (0.2 + rnd() * 0.7) * RSY;
+    const wZ = (0.1 + rnd() * 0.5) * RSZ;
+    const phX = rnd() * Math.PI * 2;
+    const phZ = rnd() * Math.PI * 2;
 
-      let dt = (now - last) / 1000;
-      last = now;
-      if (dt > 0.05) dt = 0.05;
-      if (!paused) elapsed += dt * timeScale;
+    let yaw = 0, pitch = 0, roll = 0;
+    let targetYaw = 0, targetPitch = 0;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+    const pointer = { x: 0, y: 0, inside: true };
+    const onMove = (e: PointerEvent) => {
+      const ww = Math.max(1, window.innerWidth);
+      const wh = Math.max(1, window.innerHeight);
+      const cx = ww * 0.5;
+      const cy = wh * 0.5;
+      const nx = (e.clientX - cx) / (ww * 0.5);
+      const ny = (e.clientY - cy) / (wh * 0.5);
+      pointer.x = Math.max(-1, Math.min(1, nx));
+      pointer.y = Math.max(-1, Math.min(1, ny));
+      pointer.inside = true;
+    };
+    const onLeave = () => { pointer.inside = false; };
+    const onBlur = () => { pointer.inside = false; };
+
+    let onPointerMove: ((e: PointerEvent) => void) | null = null;
+    if (animationType === "hover") {
+      onPointerMove = (e: PointerEvent) => {
+        onMove(e);
+        startRAF();
+      };
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("mouseleave", onLeave);
+      window.addEventListener("blur", onBlur);
+      program.uniforms.uUseBaseWobble.value = 0;
+    } else if (animationType === "3drotate") {
+      program.uniforms.uUseBaseWobble.value = 0;
+    } else {
+      program.uniforms.uUseBaseWobble.value = 1;
+    }
+
+    function render(t: number) {
+      const time = (t - t0) * 0.001;
+      program.uniforms.iTime.value = time;
+
+      let continueRAF = true;
 
       if (animationType === "hover") {
-        const tx = pointer.active ? pointer.nx : 0;
-        const ty = pointer.active ? pointer.ny : 0;
-        const k = 1 - Math.exp(-dt / 0.45);
-        smooth.x += (tx - smooth.x) * k;
-        smooth.y += (ty - smooth.y) * k;
-        program.uniforms.uPointer.value = [smooth.x, smooth.y];
+        const maxPitch = 0.6 * HOVSTR;
+        const maxYaw = 0.6 * HOVSTR;
+        targetYaw = (pointer.inside ? -pointer.x : 0) * maxYaw;
+        targetPitch = (pointer.inside ? pointer.y : 0) * maxPitch;
+        const prevYaw = yaw;
+        const prevPitch = pitch;
+        const prevRoll = roll;
+        yaw = lerp(prevYaw, targetYaw, INERT);
+        pitch = lerp(prevPitch, targetPitch, INERT);
+        roll = lerp(prevRoll, 0, 0.1);
+        program.uniforms.uRot.value = setMat3FromEuler(yaw, pitch, roll, rotBuf);
+
+        if (NOISE_IS_ZERO) {
+          const settled =
+            Math.abs(yaw - targetYaw) < 1e-4 &&
+            Math.abs(pitch - targetPitch) < 1e-4 &&
+            Math.abs(roll) < 1e-4;
+          if (settled) continueRAF = false;
+        }
+      } else if (animationType === "3drotate") {
+        const tScaled = time * TS;
+        yaw = tScaled * wY;
+        pitch = Math.sin(tScaled * wX + phX) * 0.6;
+        roll = Math.sin(tScaled * wZ + phZ) * 0.5;
+        program.uniforms.uRot.value = setMat3FromEuler(yaw, pitch, roll, rotBuf);
+        if (TS < 1e-6) continueRAF = false;
+      } else {
+        rotBuf[0] = 1; rotBuf[1] = 0; rotBuf[2] = 0;
+        rotBuf[3] = 0; rotBuf[4] = 1; rotBuf[5] = 0;
+        rotBuf[6] = 0; rotBuf[7] = 0; rotBuf[8] = 1;
+        program.uniforms.uRot.value = rotBuf;
+        if (TS < 1e-6) continueRAF = false;
       }
 
-      program.uniforms.iTime.value = elapsed;
       renderer.render({ scene: mesh });
-    };
-    raf = requestAnimationFrame(frame);
+      if (continueRAF && !paused) {
+        raf = requestAnimationFrame(render);
+      } else {
+        raf = 0;
+      }
+    }
 
-    // Stop entirely when scrolled out of view.
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !running) {
-          running = true;
-          last = performance.now();
-          raf = requestAnimationFrame(frame);
-        } else if (!entry.isIntersecting && running) {
-          running = false;
-          cancelAnimationFrame(raf);
-        }
-      },
-      { threshold: 0 },
-    );
-    io.observe(container);
+    let io: IntersectionObserver | null = null;
+    if (suspendWhenOffscreen) {
+      io = new IntersectionObserver((entries) => {
+        const vis = entries.some((e) => e.isIntersecting);
+        if (vis) startRAF();
+        else stopRAF();
+      });
+      io.observe(container);
+      startRAF();
+    } else {
+      startRAF();
+    }
 
     return () => {
-      running = false;
-      cancelAnimationFrame(raf);
-      io.disconnect();
+      stopRAF();
       ro.disconnect();
-      releasePointer();
-      const lose = gl.getExtension("WEBGL_lose_context");
-      if (lose) lose.loseContext();
-      if (canvas.parentElement === container) container.removeChild(canvas);
+      if (animationType === "hover") {
+        if (onPointerMove) window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("mouseleave", onLeave);
+        window.removeEventListener("blur", onBlur);
+      }
+      if (io) io.disconnect();
+      if (gl.canvas.parentElement === container) container.removeChild(gl.canvas);
     };
   }, [
     height,
@@ -314,13 +440,20 @@ export default function Prism({
     animationType,
     glow,
     noise,
+    offset?.x,
+    offset?.y,
     scale,
+    transparent,
     hueShift,
     colorFrequency,
     timeScale,
+    hoverStrength,
+    inertia,
+    bloom,
+    suspendWhenOffscreen,
+    lightMode,
     paused,
-    dpr,
   ]);
 
-  return <div ref={containerRef} className={className ?? "h-full w-full"} aria-hidden="true" />;
+  return <div className="prism-container" ref={containerRef} />;
 }
