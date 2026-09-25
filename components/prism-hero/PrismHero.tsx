@@ -359,10 +359,12 @@ export default function PrismHero() {
         return;
       }
 
+      contactEl.style.display = "block";
       gsap.set(contactEl, {
         scale: 0.6,
         clipPath: "inset(100% 0% 0% 0%)",
         opacity: 1,
+        autoAlpha: 1,
         visibility: "visible",
         willChange: "transform, clip-path",
       });
@@ -432,7 +434,7 @@ export default function PrismHero() {
         tl.to(contactEl, {
           clipPath: "inset(100% 0% 0% 0%)",
           scale: 0.6,
-          opacity: 0.4,
+          opacity: 0,
           ease: "power3.inOut",
         })
           .to(
@@ -449,7 +451,9 @@ export default function PrismHero() {
 
         await new Promise<void>((resolve) => {
           tl.eventCallback("onComplete", () => {
-            gsap.set([contactEl, domainsEl], { clearProps: "all" });
+            contactEl.style.display = "none";
+            gsap.set(contactEl, { autoAlpha: 0 });
+            gsap.set([contactEl, domainsEl], { clearProps: "transform,clipPath,yPercent,opacity,willChange" });
             setContact(false);
             contactTransitionBusyRef.current = false;
             lockUntilRef.current = performance.now() + 250;
@@ -883,7 +887,7 @@ export default function PrismHero() {
           onExited={onBrandsExited}
         />
       </div>
-      <DomainsScreen ref={domainsRef} active={domainsOn} warm={brandsSettled} />
+      <DomainsScreen ref={domainsRef} active={domainsOn} warm={brandsSettled && !contactOn} />
       <ContactScreen ref={contactRef} active={contactOn} />
       {/* One nav across the overlay screens, so it holds still between them. */}
       {(productsOn || domainsOn || contactOn) && (

@@ -96,8 +96,8 @@ const ContactScreen = forwardRef<ContactScreenHandle, ContactScreenProps>(functi
         active ? "pointer-events-auto visible" : "pointer-events-none invisible"
       }`}
       style={{
-        // Initially placed for the GSAP clip-path / zoom transition
-        willChange: "transform, clip-path",
+        display: active ? "block" : "none",
+        willChange: "transform, clip-path, opacity",
       }}
     >
       <style>{`
@@ -174,16 +174,18 @@ const ContactScreen = forwardRef<ContactScreenHandle, ContactScreenProps>(functi
                 </span>
               </div>
 
-              {/* Map embed with rounded corners */}
-              <div className="group relative h-[320px] sm:h-[380px] w-full overflow-hidden rounded-[22px] bg-[#e8e8ed] border border-black/5">
-                <iframe
-                  title="AV Nirvana Experience Centre"
-                  src={MAP_EMBED}
-                  className="absolute inset-0 h-full w-full border-0 grayscale-[0.85] transition-all duration-700 ease-out group-hover:grayscale-0"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  allowFullScreen
-                />
+              {/* Map embed with rounded corners - isolated stacking context & paint containment */}
+              <div className="group relative h-[320px] sm:h-[380px] w-full overflow-hidden rounded-[22px] bg-[#e8e8ed] border border-black/5 [contain:paint] [isolation:isolate] transform-gpu">
+                {active && (
+                  <iframe
+                    title="AV Nirvana Experience Centre"
+                    src={MAP_EMBED}
+                    className="absolute inset-0 h-full w-full border-0 grayscale-[0.85] transition-all duration-700 ease-out group-hover:grayscale-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                )}
               </div>
             </div>
 
