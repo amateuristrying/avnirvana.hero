@@ -2,8 +2,10 @@
 
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
+import Image from "next/image";
 import gsap from "gsap";
 import { useReducedMotion } from "@/lib/useReducedMotion";
+import styles from "./DomainsScreen.module.css";
 
 const TITLE = "Sound & Vision, Built for Every Space";
 const SUBTITLE =
@@ -17,6 +19,8 @@ interface Domain {
   desc: string;
   /** Card colour. */
   card: string;
+  /** Existing illustration-only PNG, in card order. */
+  illustration: { src: string; width: number; height: number };
 }
 
 const DOMAINS: Domain[] = [
@@ -26,6 +30,7 @@ const DOMAINS: Domain[] = [
     tag: "Residential",
     desc: "Private cinemas, multi-room audio and seamless automation, crafted around the way you live.",
     card: "#EBE9E4",
+    illustration: { src: "/domains/1.png", width: 1032, height: 538 },
   },
   {
     title: "Auditoriums & Event Spaces",
@@ -33,6 +38,7 @@ const DOMAINS: Domain[] = [
     tag: "Venues",
     desc: "Line arrays, projection and stage control engineered so every seat gets the best experience.",
     card: "#BDB9B8",
+    illustration: { src: "/domains/2.png", width: 1091, height: 544 },
   },
   {
     title: "Retail & Lifestyle Spaces",
@@ -40,6 +46,7 @@ const DOMAINS: Domain[] = [
     tag: "Retail",
     desc: "Curated background music, digital signage and ambience that shape how customers feel.",
     card: "#A5B1A1",
+    illustration: { src: "/domains/3.png", width: 1081, height: 542 },
   },
   {
     title: "Corporate & Commercial Spaces",
@@ -47,6 +54,7 @@ const DOMAINS: Domain[] = [
     tag: "Workplace",
     desc: "Boardrooms, collaboration suites and building-wide AV that keep teams effortlessly connected.",
     card: "#D1C5A1",
+    illustration: { src: "/domains/4.png", width: 1090, height: 546 },
   },
   {
     title: "Hospitality & Leisure",
@@ -54,6 +62,7 @@ const DOMAINS: Domain[] = [
     tag: "Hospitality",
     desc: "Zoned audio, lighting scenes and entertainment systems for hotels, bars, clubs and resorts.",
     card: "#F1F0B2",
+    illustration: { src: "/domains/5.png", width: 1118, height: 550 },
   },
   {
     title: "Education & Institutions",
@@ -61,6 +70,7 @@ const DOMAINS: Domain[] = [
     tag: "Education",
     desc: "Smart classrooms, lecture capture and campus-wide AV that elevate the way people learn.",
     card: "#B3AB9E",
+    illustration: { src: "/domains/6.png", width: 1115, height: 593 },
   },
 ];
 
@@ -125,6 +135,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
 
   const geoRef = useRef<Geometry | null>(null);
   const hoverRef = useRef(-1);
+  const keyboardRef = useRef(false);
   const sizes = useRef<number[]>(Array(N).fill(0));
   const vels = useRef<number[]>(Array(N).fill(0));
   const written = useRef<number[]>(Array(N).fill(-1));
@@ -160,8 +171,12 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
     } else {
       const gap = 8;
       const slim = clamp(Math.round((H - 6 * gap) * 0.1), 46, 60);
-      const big = clamp(H - 5 * (slim + gap) - gap, 190, 340);
-      g = { vertical: true, gap, slim, big, cross: Math.min(W, 560), main: H };
+      const cross = Math.min(W, 560);
+      const base = clamp(H - 5 * (slim + gap) - gap, 190, 340);
+      // Retain the stacked carousel; give only the open card room for its art.
+      const artwork = Math.min((cross - 40) * (593 / 1115), 260);
+      const big = Math.min(base + artwork + 20, Math.max(base, H - gap));
+      g = { vertical: true, gap, slim, big, cross, main: H };
     }
     const prev = geoRef.current;
     geoRef.current = g;
@@ -172,6 +187,9 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
     }
     row.style.setProperty("--g", `${g.gap}px`);
     row.style.setProperty("--slim", `${g.slim}px`);
+    // On shorter desktops the existing cards already fill the stage. Its
+    // surrounding margin still allows a small, visible vertical expansion.
+    row.style.setProperty("--reveal-growth", `${clamp(H - g.cross, 24, 96)}px`);
     slotRefs.current.forEach((slot) => {
       if (!slot) return;
       if (g.vertical) {
@@ -225,28 +243,38 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
   // --- Hover ---------------------------------------------------------------------
   const setHover = useCallback(
     (i: number) => {
+      window.clearTimeout(leaveTimer.current);
       if (hoverRef.current === i) return;
       hoverRef.current = i;
       dimRefs.current.forEach((el, k) => {
         if (el) el.style.opacity = i >= 0 && k !== i ? "1" : "0";
       });
-      cardRefs.current.forEach((el, k) => el?.setAttribute("data-open", String(k === i)));
+      cardRefs.current.forEach((el, k) => {
+        el?.setAttribute("data-open", String(k === i));
+        el?.setAttribute("aria-expanded", String(k === i));
+      });
     },
     [],
   );
 
   const onSlotEnter = (i: number) => (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse") return;
+    if (e.pointerType !== "mouse" || keyboardRef.current) return;
     window.clearTimeout(leaveTimer.current);
     setHover(i);
   };
+  const onSlotMove = (i: number) => (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse" || (!e.movementX && !e.movementY)) return;
+    keyboardRef.current = false;
+    setHover(i);
+  };
   const onRowLeave = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse") return;
+    if (e.pointerType !== "mouse" || keyboardRef.current) return;
     window.clearTimeout(leaveTimer.current);
     leaveTimer.current = window.setTimeout(() => setHover(-1), 110);
   };
-  const onSlotTap = (i: number) => () => {
-    if (!touch) return;
+  const onSlotTap = (i: number) => (e: React.MouseEvent) => {
+    const pointerType = (e.nativeEvent as PointerEvent).pointerType;
+    if (!touch && pointerType !== "touch" && pointerType !== "pen" && e.detail !== 0) return;
     setHover(hoverRef.current === i ? -1 : i);
   };
   const onRowBlur = (e: React.FocusEvent) => {
@@ -258,6 +286,8 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" && e.key !== "Escape") return;
+      e.preventDefault();
+      keyboardRef.current = true;
       if (e.key === "Escape") {
         setHover(-1);
         return;
@@ -277,6 +307,10 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
     const P = pointer.current;
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
+      if (keyboardRef.current && (e.movementX || e.movementY)) {
+        keyboardRef.current = false;
+        if (!rowRef.current?.contains(e.target as Node)) setHover(-1);
+      }
       P.x = e.clientX;
       P.y = e.clientY;
       P.nx = (e.clientX / window.innerWidth) * 2 - 1;
@@ -355,6 +389,11 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
       // enough to keep the open card inside the stage, and the cards beyond it
       // run off the far edge.
       let shiftTarget = 0;
+      // Taller illustrated cards may send neighbouring mobile cards beyond
+      // the stage. Clip that excess before it reaches the heading or hint.
+      const stage = stageRef.current;
+      const overflow = g.vertical && rowLen > g.main + 0.5 ? "true" : "false";
+      if (stage && stage.dataset.overflow !== overflow) stage.dataset.overflow = overflow;
       if (rowLen > g.main + 0.5) {
         const natural = (g.main - rowLen) / 2;
         let lead = natural;
@@ -431,7 +470,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
       window.removeEventListener("pointerout", onOut);
       P.has = false;
     };
-  }, [active, reduced, touch]);
+  }, [active, reduced, touch, setHover]);
 
   // --- Entrance --------------------------------------------------------------------
   const hideContent = useCallback(() => {
@@ -450,6 +489,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
       prepare: () => {
         window.clearTimeout(leaveTimer.current);
         hoverRef.current = -2; // forces setHover(-1) to apply
+        keyboardRef.current = false;
         setHover(-1);
         measure();
         const g = geoRef.current;
@@ -503,6 +543,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
       aria-hidden={!active}
       className={`fixed inset-0 z-[135] overflow-hidden text-white ${active ? "visible" : "pointer-events-none invisible"}`}
       onPointerDown={(e) => {
+        keyboardRef.current = false;
         if (touch && !rowRef.current?.contains(e.target as Node)) setHover(-1);
       }}
     >
@@ -545,7 +586,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
           </p>
         </header>
 
-        <div ref={stageRef} className="relative my-4 flex min-h-0 flex-1 items-center justify-center sm:my-5">
+        <div ref={stageRef} className={`${styles.stage} relative my-4 flex min-h-0 flex-1 items-center justify-center sm:my-5`}>
           <div
             ref={rowRef}
             className={`flex ${vertical ? "flex-col" : "flex-row"}`}
@@ -560,6 +601,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
                 }}
                 className="relative shrink-0 will-change-transform"
                 onPointerEnter={onSlotEnter(i)}
+                onPointerMove={onSlotMove(i)}
                 onClick={onSlotTap(i)}
               >
                 <article
@@ -567,13 +609,31 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
                     cardRefs.current[i] = el;
                   }}
                   tabIndex={0}
+                  role="button"
                   aria-label={d.title}
+                  aria-expanded="false"
+                  aria-controls={`domain-details-${i + 1}`}
                   data-open="false"
-                  onFocus={() => setHover(i)}
-                  className={`font-swiss absolute overflow-hidden rounded-[18px] text-[#020303] shadow-[0_40px_80px_-38px_rgba(0,0,0,0.8)] outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                  data-layout={vertical ? "vertical" : "horizontal"}
+                  onFocus={(e) => {
+                    // A touch-induced focus must not open and then immediately
+                    // close the card again when its click event arrives.
+                    if (e.currentTarget.matches(":focus-visible")) {
+                      keyboardRef.current = true;
+                      setHover(i);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    keyboardRef.current = true;
+                    setHover(hoverRef.current === i ? -1 : i);
+                  }}
+                  className={`${styles.card} font-swiss absolute overflow-hidden rounded-[18px] text-[#020303] shadow-[0_40px_80px_-38px_rgba(0,0,0,0.8)] outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                     vertical
                       ? "inset-x-0 top-[calc(var(--g)/2)] bottom-[calc(var(--g)/2)]"
-                      : "inset-y-0 left-[calc(var(--g)/2)] right-[calc(var(--g)/2)]"
+                      : "left-[calc(var(--g)/2)] right-[calc(var(--g)/2)]"
                   }`}
                   style={{ backgroundColor: d.card }}
                 >
@@ -603,6 +663,7 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
                   {/* Open: the details, laid out at full width so nothing
                       reflows while the card grows; the card clips them. */}
                   <div
+                    id={`domain-details-${i + 1}`}
                     ref={(el) => {
                       detailRefs.current[i] = el;
                     }}
@@ -611,10 +672,22 @@ const DomainsScreen = forwardRef<DomainsHandle, { active: boolean }>(function Do
                     }`}
                     style={{ opacity: 0, visibility: "hidden" }}
                   >
-                    <div className="flex justify-end">
+                    <div className="flex shrink-0 justify-end">
                       <span className="text-[12px] font-medium uppercase leading-none tracking-[0.01em]">{d.tag}</span>
                     </div>
-                    <div>
+                    <div className={styles.illustration} aria-hidden="true">
+                      <Image
+                        src={d.illustration.src}
+                        width={d.illustration.width}
+                        height={d.illustration.height}
+                        alt=""
+                        unoptimized
+                        draggable={false}
+                        loading={active ? "eager" : "lazy"}
+                        className={styles.image}
+                      />
+                    </div>
+                    <div className="shrink-0">
                       <h3
                         className={`font-medium uppercase leading-[0.93] tracking-[-0.035em] ${
                           vertical ? "text-[min(34px,8.4cqw)]" : "text-[min(52px,9.2cqw)]"
