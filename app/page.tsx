@@ -1,9 +1,5 @@
-import HeroAboutExperience from "@/components/experience/HeroAboutExperience";
+import SiteV3 from "@/components/v3/SiteV3";
 
 export default function Page() {
-  return (
-    <main>
-      <HeroAboutExperience />
-    </main>
-  );
+  return <SiteV3 />;
 }

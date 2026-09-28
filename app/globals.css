@@ -1,28 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans:
-    var(--font-outfit), "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  /* Onest is the Spotlight body face (next/font sets --nf-onest). */
+  --font-sans: var(--nf-onest), "Onest", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
-  /* Canvas — matches the base fill of the filament background artwork, so the
-     page reads as one surface before (and around) the SVG. */
-  --color-canvas: #120a1e;
+  /* Swiss neo-grotesk for the Domains cards; Arial covers systems without it. */
+  --font-swiss: "Helvetica Neue", Helvetica, Arial, sans-serif;
 
-  /* Foreground — typography and particles, tinted faintly toward the
-     artwork's lavender so white never reads as clinical against it. */
-  --color-fg: #f6f4fb;
-  --color-fg-soft: #e4dfef;
-  --color-fg-mute: #b3abc4;
-  --color-accent: #b9aee0;
-
-  /* Brand blue, as drawn in the logo lockup. The lockup sits on a dark field,
-     which is exactly this hero now, so the literal value is legible here. */
+  /* Brand blue, as drawn in the logo lockup. */
   --color-brand: #5ba9de;
-
-  /* Lines */
-  --color-line: rgba(246, 244, 251, 0.12);
-  --color-line-strong: rgba(246, 244, 251, 0.24);
 }
 
 @layer base {
@@ -42,8 +28,7 @@
   }
 
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-fg);
+    color: #fff;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -51,115 +36,16 @@
   }
 
   ::selection {
-    background: rgba(246, 244, 251, 0.9);
-    color: var(--color-canvas);
+    background: rgba(255, 255, 255, 0.9);
+    color: #0e16fb;
   }
 
+  /* No radius here: the outline follows each control's own shape, pills
+   * included. */
   :focus-visible {
-    outline: 2px solid rgba(246, 244, 251, 0.7);
+    outline: 2px solid rgba(255, 255, 255, 0.85);
     outline-offset: 3px;
-    border-radius: 4px;
   }
-}
-
-@layer utilities {
-  /* Nav underline that grows from the left on hover. */
-  .nav-underline::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -6px;
-    height: 1px;
-    width: 100%;
-    background: currentColor;
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .nav-underline:hover::after,
-  .nav-underline:focus-visible::after {
-    transform: scaleX(1);
-  }
-
-  .nav-underline[data-active="true"]::after {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes scroll-dot {
-  0% {
-    transform: translateY(0);
-    opacity: 0;
-  }
-  22% {
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(9px);
-    opacity: 0;
-  }
-}
-
-.animate-scroll-dot {
-  animation: scroll-dot 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-}
-
-@keyframes rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.rise-in {
-  animation: rise-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Liquid Glass Chassis */
-.liquid-glass-chassis {
-  background: radial-gradient(
-      120% 120% at 50% 0%,
-      rgba(255, 255, 255, 0.07) 0%,
-      rgba(138, 182, 255, 0.03) 38%,
-      rgba(10, 16, 32, 0.58) 100%
-    );
-  backdrop-filter: blur(28px) saturate(190%) contrast(105%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(105%);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  box-shadow:
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 1px 0 rgba(138, 182, 255, 0.12),
-    inset 0 0 32px 0 rgba(138, 182, 255, 0.05),
-    0 24px 70px -16px rgba(0, 0, 0, 0.72),
-    0 2px 14px 0 rgba(0, 0, 0, 0.45);
-}
-
-@keyframes liquid-shimmer {
-  0% {
-    transform: translate(-30%, -30%) rotate(0deg);
-    opacity: 0.28;
-  }
-  50% {
-    transform: translate(-20%, -22%) rotate(180deg);
-    opacity: 0.45;
-  }
-  100% {
-    transform: translate(-30%, -30%) rotate(360deg);
-    opacity: 0.28;
-  }
-}
-
-.animate-liquid-shimmer {
-  animation: liquid-shimmer 22s ease-in-out infinite;
-  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -170,11 +56,5 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .rise-in {
-    animation: none;
-    opacity: 1;
-    transform: none;
   }
 }

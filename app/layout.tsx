@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Onest } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
+/* The Spotlight faces: Onest for the body and pills; General Sans for the
+ * display type, loaded from Fontshare below as in the reference. */
+const onest = Onest({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-outfit",
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--nf-onest",
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -16,28 +18,26 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#120a1e",
+  themeColor: "#080d96",
   colorScheme: "dark",
 };
 
+/* Hide the animated components before first paint (see `html.lk-js` in
+ * spotlight.css). If the app never takes over, show the page anyway. */
+const ENTRY_STATE = `(function(){var d=document.documentElement;d.classList.add("lk-js");setTimeout(function(){if(!window.__lkLive)d.classList.remove("lk-js")},4000)})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={outfit.variable}>
+    // The pre-paint script adds `lk-js` before hydration; that one attribute is
+    // expected to differ from the server render.
+    <html lang="en" className={onest.variable} suppressHydrationWarning>
       <head>
-        <link
-          rel="preload"
-          href="/hero/filament-loop.svg"
-          as="image"
-          type="image/svg+xml"
-        />
-        <link
-          rel="prefetch"
-          href="/about/stipple-background.svg"
-          as="image"
-          type="image/svg+xml"
-        />
+        <script dangerouslySetInnerHTML={{ __html: ENTRY_STATE }} />
+        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="" />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="" />
+        <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

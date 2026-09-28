@@ -1,0 +1,1226 @@
+/* ══ AV Nirvana v3 — the sections around the Spotlight hero ═════════════
+ * The hero's visual language carried through the page: glass at the nav's
+ * 10% white on an 8px blur, headlines cut out of the white ramp in General
+ * Sans, black pills with the white disc. Nothing paints a ground: the Flow
+ * Wave shows through everywhere. Motion lives in motion.ts (GSAP).
+ *
+ * EVERY SECTION IS ONE SCREEN. Each is at least 100svh tall, with its
+ * content centred between the nav bar and the bottom edge, and its type and
+ * spacing are fluid in both viewport axes — `min(Xvw, Ysvh)` — so a short,
+ * wide window scales a section down to fit instead of spilling past the
+ * fold. Only a handful of layouts change, at width breakpoints at the end:
+ * split heads stack, the About cards become a swipe row, and the product
+ * slide goes single-column. */
+
+:root {
+  /* Content aligns with the brand inside the nav bar. */
+  --page-x: calc(var(--nav-inset) + var(--brand-x));
+  --wrap-max: 1780px;
+  --nav-bottom: calc(var(--nav-top) + var(--nav-h));
+  --sec-air: clamp(16px, 4.4svh, 64px);
+  --section-pt: calc(var(--nav-bottom) + var(--sec-air));
+  --section-pb: var(--sec-air);
+  --head-to-body: clamp(16px, 3.4svh, 48px);
+
+  --glass: var(--nav-bg);
+  --glass-hover: rgba(255, 255, 255, 0.14);
+  --glass-blur: var(--nav-blur);
+  --hairline: rgba(255, 255, 255, 0.18);
+  --ink-soft: rgba(255, 255, 255, 0.8);
+  --ink-mute: rgba(255, 255, 255, 0.66);
+  --panel-r: clamp(24px, 3.6svh, 40px);
+  --card-r: clamp(20px, 2.9svh, 32px);
+  --card-p: clamp(18px, 2.6svh, 36px);
+  --gap: clamp(10px, 1.5svh, 16px);
+
+  /* Section heads — line A : line B keeps close to the hero's 72 : 128. */
+  --s-stack: clamp(12px, 2.4svh, 28px);
+  --s-head-gap: clamp(4px, 0.9svh, 10px);
+  --fs-sa: clamp(22px, min(2.5vw, 4.2svh), 48px);
+  --fs-sb: clamp(34px, min(4.45vw, 7.6svh), 88px);
+  --tag-h: clamp(32px, 4.1svh, 44px);
+  --tag-px: clamp(14px, 1.8svh, 20px);
+  --fs-tag: clamp(13px, 1.6svh, 18px);
+  --tag-mark: clamp(12px, 1.4svh, 16px);
+  --fs-lead: clamp(15px, min(1.3vw, 2.4svh), 23px);
+  --fs-body: clamp(13.5px, min(1.1vw, 2.1svh), 17px);
+  --fs-label: clamp(11.5px, min(0.85vw, 1.5svh), 14px);
+
+  /* About */
+  --fs-card-t: clamp(18px, min(1.6vw, 3svh), 32px);
+  --fs-fact: clamp(20px, min(2vw, 3.6svh), 40px);
+
+  /* Products */
+  --pr-pad: clamp(18px, 3.4svh, 48px);
+  --pr-img-h: clamp(150px, 30svh, 500px);
+  --fs-pr-title: clamp(38px, min(6vw, 10svh), 112px);
+  --pr-tab-h: clamp(36px, 5svh, 54px);
+  --pr-tab-px: clamp(12px, 1.5vw, 28px);
+  --fs-pr-tab: clamp(13px, min(1.05vw, 2.1svh), 20px);
+  --pr-arrow: clamp(38px, 5.4svh, 60px);
+  --pr-icon: clamp(34px, 4.6svh, 48px);
+
+  /* Brands */
+  --chip-h: clamp(58px, 9svh, 104px);
+  --chip-mark: clamp(24px, 4svh, 44px);
+  --fs-chip: clamp(15px, 2.2svh, 24px);
+  --fs-chip-tag: clamp(11.5px, 1.4svh, 15px);
+
+  /* Contact */
+  --ct-map-h: clamp(300px, 62svh, 660px);
+  --fs-map-h: clamp(22px, 3.6svh, 40px);
+  --fs-pill: clamp(15px, 1.9svh, 20px);
+  --ct-row-py: clamp(10px, 2svh, 22px);
+
+  /* Footer */
+  --fs-ft-h: 18px;
+  --fs-ft: 16px;
+}
+
+/* ── Page frame ──────────────────────────────────────────────────────── */
+.v3-main {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+}
+
+/* One screen: at least the viewport tall, content centred below the bar. */
+.v3-section {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  padding: var(--section-pt) var(--page-x) var(--section-pb);
+}
+
+.v3-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--head-to-body);
+  width: 100%;
+  max-width: var(--wrap-max);
+  margin-inline: auto;
+}
+
+.v3-glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ── Section head ────────────────────────────────────────────────────── */
+.v3-head,
+.v3-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-stack);
+  min-width: 0;
+}
+
+.v3-head[data-align="center"],
+.v3-head[data-align="center"] .v3-head-main {
+  align-items: center;
+  text-align: center;
+}
+
+.v3-head[data-align="left"] .v3-head-main {
+  align-items: flex-start;
+  text-align: left;
+}
+
+/* Split: tag and title on the left, the aside (lead, facts, controls) on the
+ * right, the two bottoms aligned. */
+.v3-head[data-split="true"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--aside-w, auto);
+  align-items: end;
+  column-gap: clamp(24px, 4vw, 96px);
+  row-gap: var(--s-stack);
+}
+
+.v3-head-aside {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2.2svh, 26px);
+  min-width: 0;
+}
+
+.v3-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--tag-h);
+  padding: 0 var(--tag-px);
+  border-radius: var(--nav-r);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  font-family: var(--font-onest);
+  font-weight: 500;
+  font-size: var(--fs-tag);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.v3-tag-mark {
+  width: auto;
+  height: var(--tag-mark);
+  flex: none;
+}
+
+/* The title box hugs its longer line, and both lines stretch to it, so the
+ * two ramps run the same length and fade in step — as the hero's do. */
+.v3-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-head-gap);
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  font-weight: inherit;
+}
+
+/* Each line rises out of its mask. The mask carries the line's size; the
+ * line's box is grown in em (and sideways by --head-bleed) so descenders
+ * keep their paint under `background-clip: text`, and the mask's equal
+ * negative margin gives that growth back to the flow (see .sp-mask). */
+.v3-mask {
+  display: block;
+  margin: -0.22em calc(-1 * var(--head-bleed)) -0.34em;
+  overflow: hidden;
+}
+
+.v3-mask-a {
+  font-size: var(--fs-sa);
+}
+
+.v3-mask-b {
+  font-size: var(--fs-sb);
+}
+
+.v3-ta,
+.v3-tb {
+  display: block;
+  padding: 0.22em var(--head-bleed) 0.34em;
+  line-height: 1;
+  background-image: var(--head-ramp);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-wrap: balance;
+}
+
+.v3-ta {
+  font-family: var(--font-general);
+  font-weight: 400;
+}
+
+.v3-tb {
+  font-family: var(--font-general);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.v3-lead {
+  max-width: 46ch;
+  font-family: var(--font-onest);
+  font-size: var(--fs-lead);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+/* ── About ───────────────────────────────────────────────────────────── */
+.ab .v3-head {
+  --aside-w: min(40%, 600px);
+}
+
+.ab-lead {
+  max-width: none;
+}
+
+.ab-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(10px, 1.8svh, 20px) 24px;
+  padding-top: clamp(12px, 2.2svh, 24px);
+  border-top: 1px solid var(--hairline);
+}
+
+.ab-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ab-fact-v {
+  font-family: var(--font-general);
+  font-weight: 500;
+  font-size: var(--fs-fact);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ab-fact-l {
+  font-size: var(--fs-label);
+  line-height: 1.2;
+  color: var(--ink-soft);
+}
+
+.ab-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.ab-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(18px, 3.6svh, 52px);
+  padding: var(--card-p);
+  border-radius: var(--card-r);
+  transition: background-color 250ms ease;
+}
+
+.ab-card:hover {
+  background: var(--glass-hover);
+}
+
+.ab-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-onest);
+  font-weight: 500;
+  font-size: var(--fs-label);
+  line-height: 1;
+  color: var(--ink-mute);
+}
+
+.ab-index {
+  font-variant-numeric: tabular-nums;
+}
+
+.ab-card-title {
+  font-family: var(--font-general);
+  font-weight: 500;
+  font-size: var(--fs-card-t);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.ab-card-desc {
+  margin-top: clamp(8px, 1.4svh, 16px);
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  color: var(--ink-mute);
+}
+
+/* ── Products ────────────────────────────────────────────────────────── */
+.pr .v3-head {
+  --aside-w: auto;
+}
+
+.pr-picker {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+  min-width: 0;
+}
+
+/* The black thumb is one element that glides between tabs (motion.ts), so
+ * the tabs themselves never paint a selected ground. */
+.pr-tabs {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px;
+  border-radius: var(--nav-r);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pr-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.pr-thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-radius: var(--nav-r);
+  background: #000;
+  pointer-events: none;
+}
+
+.pr-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  height: var(--pr-tab-h);
+  padding: 0 var(--pr-tab-px);
+  border-radius: var(--nav-r);
+  font-family: var(--font-onest);
+  font-weight: 500;
+  font-size: var(--fs-pr-tab);
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+
+.pr-tab:hover:not([aria-selected="true"]) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pr-tab-n {
+  font-size: 0.72em;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-arrows {
+  display: flex;
+  gap: 10px;
+  flex: none;
+}
+
+.pr-arrow {
+  display: block;
+  width: var(--pr-arrow);
+  height: var(--pr-arrow);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.pr-arrow .sp-disc {
+  width: 100%;
+  height: 100%;
+}
+
+.pr-arrow .sp-disc circle {
+  transition: fill 200ms ease;
+}
+
+.pr-arrow:hover .sp-disc circle {
+  fill: #e6e6e6;
+}
+
+.pr-arrow-prev {
+  transform: scaleX(-1);
+}
+
+/* The stage is a window: every product is laid out in it at once, stacked in
+ * one grid cell, and a change slides one out as the next slides in. The
+ * stage clips them, and takes the height of the tallest, so nothing below
+ * moves when the product changes. */
+.pr-stage {
+  position: relative;
+  overflow: hidden;
+  padding: var(--pr-pad);
+  border-radius: var(--panel-r);
+  touch-action: pan-y;
+}
+
+.pr-slides {
+  display: grid;
+}
+
+.pr-slide {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "copy visual"
+    "specs specs";
+  align-items: center;
+  column-gap: clamp(24px, 3vw, 64px);
+  row-gap: clamp(12px, 2.6svh, 36px);
+}
+
+.pr-slide[data-active="false"] {
+  visibility: hidden;
+}
+
+.pr-copy {
+  grid-area: copy;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(8px, 1.6svh, 18px);
+  min-width: 0;
+}
+
+.pr-badge {
+  display: inline-flex;
+  align-items: center;
+  height: clamp(26px, 3.4svh, 36px);
+  padding: 0 clamp(12px, 1.6svh, 16px);
+  border-radius: var(--nav-r);
+  background: rgba(255, 255, 255, 0.12);
+  font-weight: 500;
+  font-size: clamp(10.5px, 1.3svh, 13px);
+  line-height: 1;
+  letter-spacing: 0.18em;
+}
+
+.pr-title {
+  font-family: var(--font-general);
+  font-weight: 500;
+  font-size: min(var(--fs-pr-title), 15cqw);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.pr-sub {
+  font-weight: 500;
+  font-size: var(--fs-label);
+  line-height: 1.4;
+  letter-spacing: 0.2em;
+  color: var(--ink-mute);
+}
+
+.pr-desc {
+  max-width: 38ch;
+  font-size: var(--fs-lead);
+  line-height: 1.45;
+  color: var(--ink-soft);
+  white-space: pre-line;
+}
+
+.pr-visual {
+  grid-area: visual;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+/* A soft pool of light so the dark hardware separates from the field. */
+.pr-glow {
+  position: absolute;
+  inset: -6% 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08) 55%, rgba(255, 255, 255, 0) 75%);
+  pointer-events: none;
+}
+
+.pr-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+}
+
+.pr-img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: var(--pr-img-h);
+  filter: drop-shadow(0 40px 50px rgba(0, 0, 10, 0.45));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pr-specs {
+  grid-area: specs;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 2svh, 24px) clamp(14px, 1.6vw, 28px);
+  padding-top: clamp(12px, 2.4svh, 28px);
+  border-top: 1px solid var(--hairline);
+}
+
+.pr-spec {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(10px, 1vw, 14px);
+  min-width: 0;
+}
+
+.pr-spec-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--pr-icon);
+  height: var(--pr-icon);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pr-spec-icon svg {
+  width: 50%;
+  height: 50%;
+}
+
+.pr-spec-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.pr-spec-t {
+  font-weight: 500;
+  font-size: var(--fs-body);
+  line-height: 1.25;
+}
+
+.pr-spec-d {
+  font-size: calc(var(--fs-body) - 1.5px);
+  line-height: 1.45;
+  color: var(--ink-mute);
+}
+
+/* ── Brands ──────────────────────────────────────────────────────────── */
+/* Full bleed: the rows run under the page gutters to the screen edges. */
+.br-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  margin: var(--head-to-body) calc(-1 * var(--page-x)) 0;
+}
+
+.br-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+}
+
+/* Three identical copies, each carrying its own trailing gap, so moving by
+ * exactly one copy (a third of the track) loops without a seam. GSAP drives
+ * the loop on .br-track and the scroll shear on .br-shift. */
+.br-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.br-copy {
+  display: flex;
+  gap: var(--gap);
+  padding-right: var(--gap);
+}
+
+/* No blur on the drifting chips: they move every frame. */
+.br-chip {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1.8svh, 18px);
+  flex: none;
+  height: var(--chip-h);
+  padding: 0 clamp(26px, 4svh, 44px) 0 clamp(18px, 2.8svh, 30px);
+  border-radius: var(--nav-r);
+  background: var(--glass);
+  transition: background-color 250ms ease;
+}
+
+.br-chip:hover {
+  background: var(--glass-hover);
+}
+
+.br-mark {
+  width: var(--chip-mark);
+  height: var(--chip-mark);
+  flex: none;
+}
+
+.br-text {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5px, 0.8svh, 8px);
+}
+
+.br-name {
+  font-family: var(--font-general);
+  font-weight: 500;
+  font-size: var(--fs-chip);
+  line-height: 1;
+  letter-spacing: 0.14em;
+}
+
+.br-tag {
+  font-size: var(--fs-chip-tag);
+  line-height: 1;
+  color: var(--ink-mute);
+}
+
+/* ── Domains (the reused carousel) ───────────────────────────────────── */
+/* Exactly one screen: the stage takes whatever the head and hint leave, and
+ * the carousel sizes its cards from it. The floor keeps the cards usable on
+ * a very short window. */
+.v3-domains {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 600px;
+  padding: var(--section-pt) var(--page-x) var(--section-pb);
+}
+
+.v3-domains-inner {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  max-width: var(--wrap-max);
+  margin-inline: auto;
+}
+
+.v3-domains .v3-head {
+  --aside-w: min(38%, 560px);
+}
+
+.v3-domains-hint {
+  font-size: var(--fs-label);
+  line-height: 1;
+  text-align: center;
+  color: var(--ink-mute);
+}
+
+/* ── Contact ─────────────────────────────────────────────────────────── */
+.ct-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  column-gap: clamp(32px, 5vw, 96px);
+  row-gap: var(--head-to-body);
+  align-items: center;
+}
+
+.ct-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The rules are drawn by GSAP through --rule (each row's top) and
+ * --rule-end (the list's bottom). */
+.ct-rows {
+  position: relative;
+  margin-top: var(--head-to-body);
+}
+
+.ct-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(96px, 9vw, 132px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: baseline;
+  padding: var(--ct-row-py) 0;
+}
+
+.ct-row::before,
+.ct-rows::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+  transform-origin: 0 50%;
+}
+
+.ct-row::before {
+  top: 0;
+  transform: scaleX(var(--rule, 1));
+}
+
+.ct-rows::after {
+  bottom: 0;
+  transform: scaleX(var(--rule-end, 1));
+}
+
+.ct-row dt {
+  font-weight: 500;
+  font-size: var(--fs-label);
+  line-height: 1.6;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.ct-row dd {
+  font-size: var(--fs-lead);
+  line-height: 1.45;
+}
+
+.ct-sep {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.ct-link {
+  color: #fff;
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ct-link:hover {
+  background-size: 100% 1px;
+}
+
+.ct-cta {
+  flex-wrap: wrap;
+  margin-top: var(--head-to-body);
+}
+
+.ct-map {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.6svh, 16px);
+  height: var(--ct-map-h);
+  padding: clamp(10px, 1.6svh, 16px);
+  border-radius: var(--panel-r);
+}
+
+.ct-map-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: clamp(10px, 1.8svh, 18px) clamp(10px, 1.8svh, 18px) 4px;
+}
+
+.ct-map-head h3 {
+  font-family: var(--font-general);
+  font-weight: 400;
+  font-size: var(--fs-map-h);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.ct-map-head span {
+  font-weight: 500;
+  font-size: var(--fs-label);
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+.ct-map-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: calc(var(--panel-r) - 10px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ct-map-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  filter: grayscale(0.9);
+  transition: filter 400ms ease;
+}
+
+.ct-map-frame:hover iframe {
+  filter: none;
+}
+
+.ct-map-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 4px 2px clamp(10px, 1.8svh, 18px);
+}
+
+.ct-map-foot p {
+  font-size: calc(var(--fs-body) - 1px);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* A static twin of the nav CTA, in the solid pill's black. */
+.v3-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex: none;
+  height: var(--navcta-h);
+  padding-left: 28px;
+  padding-right: var(--navcta-pr);
+  border-radius: var(--nav-r);
+  background: #000;
+  font-family: var(--font-onest);
+  font-weight: 500;
+  font-size: var(--fs-pill);
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.v3-pill .sp-disc {
+  width: var(--navcta-icon);
+  height: var(--navcta-icon);
+}
+
+.v3-pill:hover {
+  background: #1a1a1a;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.ft {
+  position: relative;
+  z-index: 1;
+  margin: 24px var(--nav-inset) var(--nav-inset);
+  padding: 56px var(--brand-x) 26px;
+  border-radius: var(--panel-r);
+  color: #fff;
+}
+
+.ft-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 1fr 1.3fr;
+  gap: 40px;
+}
+
+.ft-brand {
+  position: static;
+  transform: none;
+}
+
+.ft-tagline {
+  margin-top: 22px;
+  font-size: var(--fs-ft);
+  line-height: 1.6;
+  color: var(--ink-mute);
+}
+
+.ft h4 {
+  font-family: var(--font-general);
+  font-weight: 500;
+  font-size: var(--fs-ft-h);
+  line-height: 1;
+}
+
+.ft ul {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ft ul a,
+.ft-top {
+  font-size: var(--fs-ft);
+  line-height: 1.3;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.ft ul a:hover,
+.ft-top:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.ft-address {
+  margin-top: 20px;
+  font-size: var(--fs-ft);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.ft-socials {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.ft-social {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  color: #fff;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.ft-social svg {
+  width: 17px;
+  height: 17px;
+}
+
+.ft-social:hover {
+  background: #fff;
+  color: #000;
+}
+
+.ft-bottom {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 48px;
+  padding-top: 22px;
+  font-size: 14px;
+  color: var(--ink-mute);
+}
+
+.ft-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--hairline);
+  transform-origin: 0 50%;
+}
+
+/* ══ RESPONSIVE ══════════════════════════════════════════════════════
+ * The fluid tokens above do most of the work; these are the layout
+ * changes, and the phone's own type scale. */
+
+/* The product picker needs the full row before the title does. */
+@media (max-width: 1180px) {
+  .pr .v3-head[data-split="true"] {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .ft-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .v3-head[data-split="true"] {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  /* The pillars become a row to swipe through, bleeding to the screen edge. */
+  .ab-grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(340px, 78vw);
+    margin-inline: calc(-1 * var(--page-x));
+    padding-inline: var(--page-x);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--page-x);
+    scrollbar-width: none;
+  }
+
+  .ab-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ab-card {
+    scroll-snap-align: start;
+  }
+
+  /* With the aside full width, the four facts fit on one line. */
+  .ab-facts {
+    grid-template-columns: repeat(4, auto);
+    justify-content: space-between;
+    column-gap: 12px;
+  }
+
+  .pr-specs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ct-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-map {
+    height: clamp(180px, 24svh, 320px);
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --fs-sa: clamp(19px, 5.4vw, 26px);
+    --fs-sb: clamp(28px, 8.6vw, 42px);
+    --fs-lead: clamp(14px, 3.9vw, 17px);
+    --fs-body: clamp(13px, 3.5vw, 15px);
+    --fs-label: 12px;
+    --fs-card-t: 20px;
+    --fs-fact: clamp(15px, 4.1vw, 22px);
+    --tag-h: 32px;
+    --fs-tag: 13px;
+    --head-to-body: clamp(14px, 2.4svh, 24px);
+    --s-stack: clamp(10px, 1.8svh, 16px);
+
+    --pr-pad: clamp(16px, 2.4svh, 22px);
+    --pr-img-h: clamp(100px, 16svh, 200px);
+    --fs-pr-title: clamp(32px, 10vw, 52px);
+    --pr-tab-h: 36px;
+    --pr-tab-px: 14px;
+    --fs-pr-tab: 13px;
+    --pr-arrow: 38px;
+    --pr-icon: 28px;
+
+    --chip-h: clamp(56px, 8svh, 72px);
+    --chip-mark: 26px;
+    --fs-chip: 15px;
+    --fs-chip-tag: 12px;
+
+    --fs-map-h: 22px;
+    --fs-pill: 15px;
+    --ct-row-py: clamp(8px, 1.2svh, 12px);
+  }
+
+  .v3-lead {
+    max-width: none;
+  }
+
+  /* The product stacks: hardware, then its copy, then the four points as a
+   * two-by-two of titles. */
+  .pr-slide {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "visual"
+      "copy"
+      "specs";
+    row-gap: clamp(10px, 1.8svh, 18px);
+  }
+
+  .pr-copy {
+    gap: clamp(6px, 1.1svh, 10px);
+  }
+
+  /* The subtitle already says what the product is. */
+  .pr-badge {
+    display: none;
+  }
+
+  .pr-desc {
+    max-width: none;
+  }
+
+  .pr-specs {
+    gap: 12px 10px;
+  }
+
+  .pr-spec {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pr-spec-t {
+    font-size: 12.5px;
+  }
+
+  .pr-spec-d {
+    display: none;
+  }
+
+  .pr-glow {
+    inset: -10% 14%;
+  }
+
+  .ct-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .ct-row dt {
+    line-height: 1.4;
+  }
+
+  /* Both pills share the row rather than wrapping onto two. */
+  .ct-cta .sp-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: var(--btn-w);
+  }
+
+  /* A compact map: the address is already in the rows above it. */
+  .ct-map {
+    height: auto;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .ct-map-head,
+  .ct-map-foot p {
+    display: none;
+  }
+
+  .ct-map-frame {
+    flex: none;
+    height: clamp(84px, 11svh, 180px);
+  }
+
+  .ct-map-foot {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .ft {
+    padding: 40px var(--brand-x) 22px;
+  }
+
+  .ft-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  .ft-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Short phones (an SE-sized screen): tighter air, and the least essential
+ * pieces step aside so each section still fits one screen. The address row
+ * links to the map, so the map card is the first to go. */
+@media (max-width: 760px) and (max-height: 740px) {
+  :root {
+    --sec-air: clamp(12px, 3svh, 24px);
+    --s-stack: 10px;
+    --head-to-body: 12px;
+    --card-p: 16px;
+    --pr-img-h: clamp(90px, 14svh, 160px);
+  }
+
+  .ab-card {
+    gap: 14px;
+  }
+
+  .pr-sub,
+  .ct-map {
+    display: none;
+  }
+}
